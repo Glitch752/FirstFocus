@@ -18,5 +18,6 @@ test:
 clean:
     ./gradlew clean
 
-install: debug
+install:
     ./gradlew installDebug
+    adb shell am start -n "com.example.focus/com.example.focus.MainActivity"
