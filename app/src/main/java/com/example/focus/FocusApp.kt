@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.SelfImprovement
@@ -24,6 +23,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import com.example.focus.apps.AppSelectionScreen
 
 private data class AppDestination(val route: String, val label: String, val icon: @Composable () -> Unit)
 
@@ -43,7 +47,7 @@ fun FocusApp(modifier: Modifier = Modifier) {
         // Remove all padding from the scaffold
         modifier = modifier,
         bottomBar = {
-            NavigationBar {
+            NavigationBar(Modifier.height(64.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
                 destinations.forEach { destination ->
                     NavigationBarItem(
                         selected = currentRoute == destination.route,
@@ -89,7 +93,7 @@ fun FocusApp(modifier: Modifier = Modifier) {
             composable("home") { HomeScreen() }
             composable("focus") { PlaceholderScreen("Focus session") }
             composable("settings") { SettingsScreen(navController) }
-            composable("settings/apps") { SelectedAppsScreen(navController) }
+            composable("settings/apps") { AppSelectionScreen(navController) }
         }
     }
 }
