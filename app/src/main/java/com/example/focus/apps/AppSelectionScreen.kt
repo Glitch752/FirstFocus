@@ -59,6 +59,7 @@ fun AppSelectionScreen(navController: NavHostController, viewModel: AppSelection
             singleLine = true,
             label = { Text("Search apps") }
         )
+        Text("${state.selectedPackages.size} / ${state.apps.size} selected", Modifier.padding(vertical = 4.dp, horizontal = 4.dp))
         if (state.isLoading) {
             Column(
                 Modifier.fillMaxWidth().padding(top = 32.dp),
