@@ -21,3 +21,7 @@ clean:
 install:
     ./gradlew installDebug
     adb shell am start -n "com.example.focus/com.example.focus.MainActivity"
+
+installRelease: release
+    adb install -r app/build/outputs/apk/release/app-release.apk
+    adb shell am start -n "com.example.focus/com.example.focus.MainActivity"
