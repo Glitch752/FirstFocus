@@ -27,19 +27,20 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val permissionState by permissionViewModel.uiState.collectAsStateWithLifecycle()
-    Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Focus", style = MaterialTheme.typography.headlineLarge)
-        Text("Stuff will go here eventually trust", style = MaterialTheme.typography.titleMedium)
         if (!permissionState.allGranted) {
             RequiredPermissionBanners(viewModel = permissionViewModel)
         } else if (state.isLoading) {
             Box(Modifier.fillMaxWidth()) { CircularProgressIndicator() }
         }
+        // TODO: More detailed usage stats, including per app, either here or on click
         SummaryRow("Phone usage today", formatDuration(state.summary.totalMillis))
         SummaryRow("Distracting apps", formatDuration(state.summary.distractingMillis))
         SummaryRow("Focus time today", "todo")
         SummaryRow("Daily target", "todo ")
-        Text("Statistics", style = MaterialTheme.typography.titleLarge)
+        
+        Text("Statistics", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp))
         Text("todo")
     }
 }

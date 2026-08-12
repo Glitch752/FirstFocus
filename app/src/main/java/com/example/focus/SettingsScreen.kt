@@ -19,14 +19,13 @@ import com.example.focus.permissions.RequiredPermissionBanners
 
 @Composable
 fun SettingsScreen(navController: NavHostController) {
-    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
         RequiredPermissionBanners()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { navController.navigate("settings/apps") }
-                .padding(vertical = 16.dp),
+                .clickable { navController.navigate("settings/apps") },
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text("Distracting app list")
