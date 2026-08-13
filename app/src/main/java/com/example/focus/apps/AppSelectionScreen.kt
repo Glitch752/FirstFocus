@@ -59,8 +59,8 @@ fun AppSelectionScreen(navController: NavHostController, viewModel: AppSelection
             singleLine = true,
             label = { Text("Search apps") }
         )
-        Text("${state.selectedPackages.size} / ${state.apps.size} selected", Modifier.padding(vertical = 4.dp, horizontal = 4.dp))
         if (state.isLoading) {
+            Text("${state.selectedPackages.size} selected", Modifier.padding(vertical = 4.dp, horizontal = 4.dp))
             Column(
                 Modifier.fillMaxWidth().padding(top = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -69,7 +69,7 @@ fun AppSelectionScreen(navController: NavHostController, viewModel: AppSelection
                 Text("Loading apps...", Modifier.padding(top = 12.dp))
             }
         } else {
-            // TODO: This is a really laggy interface, not sure why. I thought lazy column would help?
+            Text("${state.selectedPackages.size} / ${state.apps.size} selected", Modifier.padding(vertical = 4.dp, horizontal = 4.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 items(apps, key = { it.packageName }) { app ->
                     Row(

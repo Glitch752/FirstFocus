@@ -28,7 +28,7 @@ fun SettingsScreen(navController: NavHostController) {
                 .clickable { navController.navigate("settings/apps") },
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Distracting app list")
+            Text("Distracting app list", Modifier.padding(vertical = 8.dp))
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = "Navigate to distracting app selection",

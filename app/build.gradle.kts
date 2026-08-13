@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.focus"
-        minSdk = 26
+        minSdk = 31
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -71,4 +71,16 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons)
     debugImplementation(libs.androidx.ui.tooling)
+}
+
+tasks.register("installAndRun", Exec::class) {
+    group = "custom"
+    description = "Installs the debug build and launches the app with adb"
+    dependsOn("installDebug")
+    // not my proudest moment but oh well
+    if (System.getProperty("os.name").lowercase().contains("windows")) {
+        commandLine("cmd", "/c", "timeout 1 && adb shell am start -n com.example.focus/com.example.focus.MainActivity")
+    } else {
+        commandLine("bash", "-c", "sleep 0.5 && adb shell am start -n com.example.focus/com.example.focus.MainActivity")
+    }
 }
