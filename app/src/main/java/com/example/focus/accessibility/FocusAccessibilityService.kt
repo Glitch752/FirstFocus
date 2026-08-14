@@ -5,12 +5,17 @@ import android.annotation.SuppressLint
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.example.focus.data.local.AppDatabase
+import com.example.focus.data.settings.SettingsKeys
+import com.example.focus.data.settings.focusDataStore
+import com.example.focus.usage.UsageStatsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @SuppressLint("AccessibilityPolicy")
 class FocusAccessibilityService : AccessibilityService() {
@@ -22,6 +27,7 @@ class FocusAccessibilityService : AccessibilityService() {
     private var currentPackage: String? = null
     /** The set of package names that are selected as distracting */
     private var selectedPackages: Set<String> = emptySet()
+    private val usageRepository by lazy { UsageStatsRepository(applicationContext) }
 
     override fun onServiceConnected() {
         overlayController = BlockingOverlayController(this)
@@ -42,9 +48,39 @@ class FocusAccessibilityService : AccessibilityService() {
 
         val packageName = event.packageName?.toString() ?: return
         if (packageName == currentPackage) return
+
+        // check if the app is now focused or is doing weird things like showing pop outs
+        // if event.className is in the android.view package, we probably shouldn't mess with this
+        // this is SO hacky, but it fixes issues with e.g. youtube sending another event when closed
+        // also, yes, == true because it's optional. yay kotlin.
+        if (event.className?.toString()?.startsWith("android.view") == true) return
+
         currentPackage = packageName
         if (packageName in selectedPackages) {
-            overlayController.show(packageName)
+            scope.launch {
+                // Keep DataStore, UsageStatsManager, and package-manager work off the
+                // main thread, then only touch the WindowManager on the main thread.
+                val settings = applicationContext.focusDataStore.data.first()
+                val selected = selectedPackages
+                val usage = usageRepository.today(selected).byPackage[packageName] ?: 0L
+                val label = packageManager.getApplicationLabel(
+                    packageManager.getApplicationInfo(packageName, 0)
+                ).toString()
+
+                // show() needs to run on the main thread
+                withContext(Dispatchers.Main) {
+                    overlayController.show(
+                        packageName = packageName,
+                        appLabel = label,
+                        usageMillis = usage,
+                        countdownSeconds = settings[SettingsKeys.preOpenCountdownSeconds] ?: 3,
+                        onClose = {
+                            overlayController.remove(clearDismissal = true)
+                            performGlobalAction(GLOBAL_ACTION_HOME)
+                        }
+                    )
+                }
+            }
         } else {
             overlayController.remove(clearDismissal = true)
         }
