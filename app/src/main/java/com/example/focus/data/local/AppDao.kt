@@ -15,4 +15,14 @@ interface AppDao {
 
     @Query("DELETE FROM selected_apps WHERE packageName = :packageName")
     suspend fun remove(packageName: String)
+
+    
+    @Query("SELECT * FROM temporary_allowances WHERE packageName = :packageName AND expiresAtMillis > :now LIMIT 1")
+    suspend fun activeAllowance(packageName: String, now: Long): TemporaryAllowanceEntity?
+
+    @Upsert
+    suspend fun upsertAllowance(allowance: TemporaryAllowanceEntity)
+
+    @Query("DELETE FROM temporary_allowances WHERE packageName = :packageName")
+    suspend fun removeAllowance(packageName: String)
 }

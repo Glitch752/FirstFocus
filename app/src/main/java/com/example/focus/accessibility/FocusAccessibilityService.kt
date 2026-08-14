@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.example.focus.data.local.AppDatabase
+import com.example.focus.data.local.TemporaryAllowanceEntity
 import com.example.focus.data.settings.SettingsKeys
 import com.example.focus.data.settings.focusDataStore
 import com.example.focus.usage.UsageStatsRepository
@@ -28,6 +29,7 @@ class FocusAccessibilityService : AccessibilityService() {
     /** The set of package names that are selected as distracting */
     private var selectedPackages: Set<String> = emptySet()
     private val usageRepository by lazy { UsageStatsRepository(applicationContext) }
+    private val appDao by lazy { AppDatabase.create(applicationContext).appDao() }
 
     override fun onServiceConnected() {
         overlayController = BlockingOverlayController(this)
@@ -40,7 +42,7 @@ class FocusAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        Log.d("FocusAccessibilityService", "received window state changed event from package ${event?.packageName}")
+        Log.d("FocusAccessibilityService", "received window state changed event from package ${event.packageName}")
 
         if(event.packageName == applicationContext.packageName) return
         // systemui can be focused from notifications and other things, causing unnecessary flickering
@@ -58,6 +60,9 @@ class FocusAccessibilityService : AccessibilityService() {
         currentPackage = packageName
         if (packageName in selectedPackages) {
             scope.launch {
+                val now = System.currentTimeMillis()
+                if (appDao.activeAllowance(packageName, now) != null) return@launch
+
                 // Keep DataStore, UsageStatsManager, and package-manager work off the
                 // main thread, then only touch the WindowManager on the main thread.
                 val settings = applicationContext.focusDataStore.data.first()
@@ -77,6 +82,14 @@ class FocusAccessibilityService : AccessibilityService() {
                         onClose = {
                             overlayController.remove(clearDismissal = true)
                             performGlobalAction(GLOBAL_ACTION_HOME)
+                        },
+                        onContinue = { durationMillis ->
+                            scope.launch {
+                                appDao.upsertAllowance(TemporaryAllowanceEntity(
+                                    packageName = packageName,
+                                    expiresAtMillis = System.currentTimeMillis() + durationMillis
+                                ))
+                            }
                         }
                     )
                 }

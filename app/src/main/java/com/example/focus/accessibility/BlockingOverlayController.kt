@@ -29,7 +29,8 @@ class BlockingOverlayController(private val context: Context) {
         appLabel: String,
         usageMillis: Long,
         countdownSeconds: Int,
-        onClose: () -> Unit
+        onClose: () -> Unit,
+        onContinue: (Long) -> Unit
     ) {
         if (overlay != null || dismissedPackage == packageName) return
 
@@ -66,9 +67,10 @@ class BlockingOverlayController(private val context: Context) {
         // compose after the view has been attached to make sure animations work
         content.setContent {
             FocusTheme {
-                FocusCheckOverlay(appLabel, usageMillis, countdownSeconds, onClose) {
+                FocusCheckOverlay(appLabel, usageMillis, countdownSeconds, onClose) { durationMillis ->
                     dismissedPackage = packageName
                     remove()
+                    onContinue(durationMillis)
                 }
             }
         }

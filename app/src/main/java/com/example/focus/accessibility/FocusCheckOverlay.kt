@@ -1,5 +1,7 @@
 package com.example.focus.accessibility
 
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -15,17 +17,25 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.focus.settings.OverlayModalBottomSheet
+import kotlinx.coroutines.launch
 import kotlin.math.ceil
 
 private fun formatDuration(millis: Long): String {
@@ -47,13 +57,14 @@ private fun ease(value: Float): Float {
     return if (value < 0.5f) 2 * value * value else -1 + (4 - 2 * value) * value
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FocusCheckOverlay(
     appLabel: String,
     usageMillis: Long,
     countdownSeconds: Int,
     onClose: () -> Unit,
-    onContinue: () -> Unit
+    onContinue: (Long) -> Unit
 ) {
     val progress = remember(countdownSeconds) { Animatable(0f) }
     LaunchedEffect(countdownSeconds) {
@@ -64,6 +75,19 @@ fun FocusCheckOverlay(
         ))
     }
     val secondsRemaining = ceil((1f - progress.value) * countdownSeconds).toInt()
+
+    val allowanceSheetState = rememberModalBottomSheetState()
+    val allowanceOptions = listOf(5, 10, 15, 20, 30, 45, 60, 90)
+
+    val scope = rememberCoroutineScope()
+
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val dispatcher = view.findOnBackInvokedDispatcher()
+        val callback = OnBackInvokedCallback { onClose() }
+        dispatcher?.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_OVERLAY, callback)
+        onDispose { dispatcher?.unregisterOnBackInvokedCallback(callback) }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -86,7 +110,7 @@ fun FocusCheckOverlay(
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {
-                        if (secondsRemaining <= 0) onContinue()
+                        if (secondsRemaining <= 0) scope.launch { allowanceSheetState.show() }
                     },
                     enabled = secondsRemaining <= 0,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -112,6 +136,29 @@ fun FocusCheckOverlay(
                 }
                 Button(onClick = onClose, modifier = Modifier.fillMaxWidth().height(48.dp)) {
                     Text("Close app")
+                }
+            }
+        }
+        OverlayModalBottomSheet(
+            onDismissRequest = { scope.launch { allowanceSheetState.hide() } },
+            sheetState = allowanceSheetState,
+            dragHandle = null
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    "How much time do you need?",
+                    Modifier.padding(vertical = 8.dp),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                allowanceOptions.forEach { minutes ->
+                    TextButton(
+                        onClick = { onContinue(minutes.toLong() * 60_000L) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("$minutes minutes")
+                    }
                 }
             }
         }
