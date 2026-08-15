@@ -5,18 +5,20 @@ import android.annotation.SuppressLint
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.example.focus.data.local.AppDatabase
-import com.example.focus.data.local.TemporaryAllowanceEntity
 import com.example.focus.data.settings.SettingsKeys
 import com.example.focus.data.settings.focusDataStore
 import com.example.focus.usage.UsageStatsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 
 @SuppressLint("AccessibilityPolicy")
 class FocusAccessibilityService : AccessibilityService() {
@@ -29,7 +31,11 @@ class FocusAccessibilityService : AccessibilityService() {
     /** The set of package names that are selected as distracting */
     private var selectedPackages: Set<String> = emptySet()
     private val usageRepository by lazy { UsageStatsRepository(applicationContext) }
-    private val appDao by lazy { AppDatabase.create(applicationContext).appDao() }
+    private val allowanceRepository by lazy { AllowanceRepository(AppDatabase.create(applicationContext).appDao()) }
+    /** A job that waits for the current allowance to expire, if any */
+    private var allowanceExpirationJob: Job? = null
+    /** A separate coroutine scope for the allowance expiration job, so we can cancel it without cancelling the main scope */
+    private val policyScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onServiceConnected() {
         overlayController = BlockingOverlayController(this)
@@ -59,43 +65,67 @@ class FocusAccessibilityService : AccessibilityService() {
 
         currentPackage = packageName
         if (packageName in selectedPackages) {
-            scope.launch {
-                val now = System.currentTimeMillis()
-                if (appDao.activeAllowance(packageName, now) != null) return@launch
-
-                // Keep DataStore, UsageStatsManager, and package-manager work off the
-                // main thread, then only touch the WindowManager on the main thread.
-                val settings = applicationContext.focusDataStore.data.first()
-                val selected = selectedPackages
-                val usage = usageRepository.today(selected).byPackage[packageName] ?: 0L
-                val label = packageManager.getApplicationLabel(
-                    packageManager.getApplicationInfo(packageName, 0)
-                ).toString()
-
-                // show() needs to run on the main thread
-                withContext(Dispatchers.Main) {
-                    overlayController.show(
-                        packageName = packageName,
-                        appLabel = label,
-                        usageMillis = usage,
-                        countdownSeconds = settings[SettingsKeys.preOpenCountdownSeconds] ?: 3,
-                        onClose = {
-                            overlayController.remove(clearDismissal = true)
-                            performGlobalAction(GLOBAL_ACTION_HOME)
-                        },
-                        onContinue = { durationMillis ->
-                            scope.launch {
-                                appDao.upsertAllowance(TemporaryAllowanceEntity(
-                                    packageName = packageName,
-                                    expiresAtMillis = System.currentTimeMillis() + durationMillis
-                                ))
-                            }
-                        }
-                    )
-                }
-            }
+            showPrompt(packageName)
         } else {
+            allowanceExpirationJob?.cancel()
             overlayController.remove(clearDismissal = true)
+        }
+    }
+
+    /**
+     * Show the overlay focus check prompt for the given package name, unless there is an active allowance
+     * @param packageName The package name of the app to show the prompt for
+     * @param ignoreAllowance If true, show the prompt even if there is an active allowance
+     */
+    private fun showPrompt(packageName: String, ignoreAllowance: Boolean = false) {
+        // Keep data access off the main thread; only create/update the overlay on it
+        scope.launch {
+            val now = System.currentTimeMillis()
+            if (!ignoreAllowance && allowanceRepository.hasActiveAllowance(packageName, now)) {
+                val expiresAt = allowanceRepository.getAllowanceExpiration(packageName, now)
+                if (expiresAt != null) restartExpirationJob(expiresAt, packageName)
+                return@launch
+            }
+
+            val settings = applicationContext.focusDataStore.data.first()
+            val selected = selectedPackages
+            val usage = usageRepository.today(selected).byPackage[packageName] ?: 0L
+            val label = packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+
+            withContext(Dispatchers.Main) {
+                // Continue dismisses this package until the foreground package changes, so we need to clear it
+                if (ignoreAllowance) overlayController.clearDismissal()
+
+                overlayController.show(
+                    packageName = packageName,
+                    appLabel = label,
+                    usageMillis = usage,
+                    countdownSeconds = settings[SettingsKeys.preOpenCountdownSeconds] ?: 3,
+                    onClose = {
+                        allowanceExpirationJob?.cancel()
+                        overlayController.remove(clearDismissal = true)
+                        performGlobalAction(GLOBAL_ACTION_HOME)
+                    },
+                    onContinue = { durationMillis ->
+                        // holy back-and-forth between threads omg
+                        scope.launch {
+                            val expiresAt = allowanceRepository.grantAllowance(packageName, durationMillis)
+                            restartExpirationJob(expiresAt, packageName)
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    /** restart the expiration job to wait the remaining duration and show the prompt again if still on the target package */
+    private fun restartExpirationJob(expiresAt: Long, packageName: String) {
+        allowanceExpirationJob?.cancel()
+        allowanceExpirationJob = policyScope.launch {
+            delay((expiresAt - System.currentTimeMillis()).coerceAtLeast(0L).milliseconds)
+            if (currentPackage == packageName && packageName in selectedPackages) {
+                showPrompt(packageName, ignoreAllowance = true)
+            }
         }
     }
 
@@ -104,6 +134,8 @@ class FocusAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        allowanceExpirationJob?.cancel()
+        policyScope.cancel()
         scope.cancel()
         if (::overlayController.isInitialized) overlayController.remove()
         super.onDestroy()

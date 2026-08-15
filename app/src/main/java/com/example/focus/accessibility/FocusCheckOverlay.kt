@@ -77,7 +77,7 @@ fun FocusCheckOverlay(
     val secondsRemaining = ceil((1f - progress.value) * countdownSeconds).toInt()
 
     val allowanceSheetState = rememberModalBottomSheetState()
-    val allowanceOptions = listOf(5, 10, 15, 20, 30, 45, 60, 90)
+    val allowanceOptions = listOf(1, 5, 10, 15, 20, 30, 45, 60, 90)
 
     val scope = rememberCoroutineScope()
 
@@ -152,6 +152,13 @@ fun FocusCheckOverlay(
                     Modifier.padding(vertical = 8.dp),
                     style = MaterialTheme.typography.titleMedium
                 )
+                // For testing
+                TextButton(
+                    onClick = { onContinue(5_000L) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("5 seconds (testing)")
+                }
                 allowanceOptions.forEach { minutes ->
                     TextButton(
                         onClick = { onContinue(minutes.toLong() * 60_000L) },
