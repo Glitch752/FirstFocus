@@ -34,7 +34,9 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.focus.BuildConfig
 import com.example.focus.settings.OverlayModalBottomSheet
+import com.example.focus.ui.components.FocusCountdown
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
 
@@ -153,7 +155,7 @@ fun FocusCheckOverlay(
                     style = MaterialTheme.typography.titleMedium
                 )
                 // For testing
-                TextButton(
+                if (BuildConfig.DEBUG) TextButton(
                     onClick = { onContinue(5_000L) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -167,6 +169,34 @@ fun FocusCheckOverlay(
                         Text("$minutes minutes")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun FocusBlockingOverlay(
+    appLabel: String,
+    startedAtMillis: Long,
+    durationMillis: Long,
+    onClose: () -> Unit
+) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("$appLabel is unavailable while focusing!", fontSize = 24.sp, textAlign = TextAlign.Center)
+                FocusCountdown(startedAtMillis, durationMillis)
+            }
+            Button(onClick = onClose, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                Text("Close app")
             }
         }
     }

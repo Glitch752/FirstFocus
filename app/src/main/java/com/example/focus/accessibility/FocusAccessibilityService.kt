@@ -5,8 +5,10 @@ import android.annotation.SuppressLint
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.example.focus.data.local.AppDatabase
+import com.example.focus.data.local.FocusSessionEntity
 import com.example.focus.data.settings.SettingsKeys
 import com.example.focus.data.settings.focusDataStore
+import com.example.focus.focus.FocusSessionRepository
 import com.example.focus.usage.UsageStatsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -32,6 +35,7 @@ class FocusAccessibilityService : AccessibilityService() {
     private var selectedPackages: Set<String> = emptySet()
     private val usageRepository by lazy { UsageStatsRepository(applicationContext) }
     private val allowanceRepository by lazy { AllowanceRepository(AppDatabase.create(applicationContext).appDao()) }
+    private val focusSessionRepository by lazy { FocusSessionRepository(AppDatabase.create(applicationContext).appDao()) }
     /** A job that waits for the current allowance to expire, if any */
     private var allowanceExpirationJob: Job? = null
     /** A separate coroutine scope for the allowance expiration job, so we can cancel it without cancelling the main scope */
@@ -39,6 +43,28 @@ class FocusAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         overlayController = BlockingOverlayController(this)
+        scope.launch {
+            focusSessionRepository.observeActive()
+                .distinctUntilChanged()
+                .collectLatest { session ->
+                    withContext(Dispatchers.Main) {
+                        val isDistracting = currentPackage in selectedPackages && currentPackage != null
+                        if (session == null) {
+                            // if the session is over, hide the active focus screen and prompt again if still in a distracting app
+                            // this will cause a minor flash, but meh.
+                            // TODO: we could make it better by managing this display state in the overlay controller.
+                            overlayController.remove(clearDismissal = true)
+                            // this should always be true, i think, but it's nice to guard
+                            if (isDistracting) showPrompt(currentPackage!!)
+                        } else if (isDistracting) {
+                            // if a focus session started and we're in a distracting app,
+                            // hide the prompt and show the active focus screen
+                            overlayController.remove(clearDismissal = true)
+                            showFocusBlock(currentPackage!!, session)
+                        }
+                    }
+                }
+        }
         scope.launch {
             AppDatabase.create(applicationContext).appDao().observeSelectedApps().collectLatest { apps ->
                 selectedPackages = apps.mapTo(mutableSetOf()) { it.packageName }
@@ -65,10 +91,30 @@ class FocusAccessibilityService : AccessibilityService() {
 
         currentPackage = packageName
         if (packageName in selectedPackages) {
-            showPrompt(packageName)
+            // not sure if this is best practice since we have nested scope.launch calls, but oh well
+            scope.launch {
+                val activeSession = focusSessionRepository.activeSession()
+                if (activeSession != null) showFocusBlock(packageName, activeSession)
+                else showPrompt(packageName)
+            }
         } else {
             allowanceExpirationJob?.cancel()
             overlayController.remove(clearDismissal = true)
+        }
+    }
+
+    /** show the overlay focus prompt with a focus session block to indicate the app can't currently be used */
+    private fun showFocusBlock(packageName: String, session: FocusSessionEntity) {
+        scope.launch {
+            val label = packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+            withContext(Dispatchers.Main) {
+                overlayController.showFocusBlock(
+                    appLabel = label,
+                    startedAtMillis = session.startedAtMillis,
+                    durationMillis = session.plannedDurationMillis,
+                    onClose = { overlayController.remove(clearDismissal = true); performGlobalAction(GLOBAL_ACTION_HOME) }
+                )
+            }
         }
     }
 
@@ -96,7 +142,7 @@ class FocusAccessibilityService : AccessibilityService() {
                 // Continue dismisses this package until the foreground package changes, so we need to clear it
                 if (ignoreAllowance) overlayController.clearDismissal()
 
-                overlayController.show(
+                overlayController.showFocusCheck(
                     packageName = packageName,
                     appLabel = label,
                     usageMillis = usage,
