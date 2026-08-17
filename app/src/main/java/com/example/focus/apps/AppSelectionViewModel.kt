@@ -56,8 +56,8 @@ class AppSelectionViewModel(application: Application) : AndroidViewModel(applica
 
     fun toggleApp(packageName: String) {
         viewModelScope.launch {
-            if (packageName in _uiState.value.selectedPackages) dao.remove(packageName)
-            else dao.upsert(SelectedAppEntity(packageName))
+            if (packageName in _uiState.value.selectedPackages) dao.removeSelectedApp(packageName)
+            else dao.upsertSelectedApp(SelectedAppEntity(packageName))
         }
     }
 }

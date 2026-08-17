@@ -1,6 +1,7 @@
 package com.example.focus.data.settings
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -11,4 +12,5 @@ object SettingsKeys {
     val preOpenCountdownSeconds = intPreferencesKey("pre_open_countdown_seconds")
     val dailyDistractingTargetMillis = longPreferencesKey("daily_distracting_target_millis")
     val defaultFocusDurationMillis = longPreferencesKey("default_focus_duration_millis")
+    val automaticallyEndFocusSessions = booleanPreferencesKey("automatically_end_focus_sessions")
 }

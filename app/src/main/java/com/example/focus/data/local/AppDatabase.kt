@@ -20,7 +20,16 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao
 
     companion object {
-        fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "focus.db").build()
+        /** we use a singleton to keep Room's update tracking consistent */
+        @Volatile
+        private var instance: AppDatabase? = null
+
+        fun create(context: Context): AppDatabase = instance ?: synchronized(this) {
+            instance ?: Room.databaseBuilder(
+                context.applicationContext,
+                AppDatabase::class.java,
+                "focus.db"
+            ).build().also { instance = it }
+        }
     }
 }

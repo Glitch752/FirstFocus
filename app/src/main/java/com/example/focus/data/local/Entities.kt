@@ -15,13 +15,19 @@ data class DailyUsageEntity(
     val foregroundMillis: Long
 )
 
+enum class FocusSessionStatus {
+    ACTIVE,
+    COMPLETED,
+    CANCELLED
+}
+
 @Entity(tableName = "focus_sessions")
 data class FocusSessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val startedAtMillis: Long,
     val endedAtMillis: Long?,
     val plannedDurationMillis: Long,
-    val status: String
+    val status: FocusSessionStatus
 )
 
 @Entity(tableName = "temporary_allowances")

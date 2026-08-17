@@ -11,9 +11,11 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,30 +29,53 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val countdownSeconds by viewModel.countdownSeconds.collectAsStateWithLifecycle()
+    val automaticallyEnd by viewModel.automaticallyEnd.collectAsStateWithLifecycle()
     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
+
         RequiredPermissionBanners()
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { navController.navigate("settings/apps") },
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("Distracting app list", Modifier.padding(vertical = 8.dp))
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = "Navigate to distracting app selection",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            // TODO: Selected count here?
+
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { navController.navigate("settings/apps") },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Distracting app list", Modifier.padding(vertical = 8.dp))
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = "Navigate to distracting app selection",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                // TODO: Selected count here?
+            }
+
+            Column {
+                Text("Focus check countdown: ${countdownSeconds}s")
+                Slider(
+                    value = countdownSeconds.toFloat(),
+                    onValueChange = { viewModel.setCountdownSeconds(it.toInt()) },
+                    valueRange = 0f..20f,
+                    steps = 20
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { viewModel.setAutomaticallyEnd(!automaticallyEnd) },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Automatically end focus sessions")
+                Switch(
+                    checked = automaticallyEnd,
+                    onCheckedChange = viewModel::setAutomaticallyEnd
+                )
+            }
         }
-        Text("Focus check countdown: ${countdownSeconds}s")
-        Slider(
-            value = countdownSeconds.toFloat(),
-            onValueChange = { viewModel.setCountdownSeconds(it.toInt()) },
-            valueRange = 0f..20f,
-            steps = 20
-        )
     }
 }
 
