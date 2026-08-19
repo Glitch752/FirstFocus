@@ -3,12 +3,12 @@
 A work-in-progress minimal, local-only screen time and focus management tool for Android.
 
 Features:
-- [ ] Very minimal UI focused on usability
-- [ ] Select distracting apps that will be used for time tracking, cooldowns, and focus sessions
-- [ ] App usage prompt with a configurable countdown to open
-- [ ] When opening apps, ask for a desired usage time (0-30m) and prompt a reminder when the time is up
+- Very minimal UI focused on usability
+- Select distracting apps that will be used for time tracking, cooldowns, and focus sessions
+- App usage prompt with a configurable countdown to open
+- When opening apps, ask for a desired usage time (0-30m) and prompt a reminder when the time is up
 - [ ] Choose a target daily usage across all distracting apps and prompt reminder when the target is reached
-- [ ] Focus sessions preventing selected apps from being opened for a set duration through an accessibility service
+- Focus sessions preventing selected apps from being opened for a set duration through an accessibility service
   - [ ] Option to set screen to grayscale during focus sessions
   - [ ] Reminders to start focus sessions at configurable times of day
 - [ ] Time (app and focus) tracking in a local database with graphs and statistics
