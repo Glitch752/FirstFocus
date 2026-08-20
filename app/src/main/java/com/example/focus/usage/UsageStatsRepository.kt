@@ -2,6 +2,7 @@ package com.example.focus.usage
 
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import com.example.focus.data.local.DailyUsageEntity
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -12,6 +13,11 @@ data class UsageSummary(
 )
 
 class UsageStatsRepository(private val context: Context) {
+    companion object {
+        /** The number of days for which we'll regenerate historical data */
+        const val HISTORY_DAYS = 120
+    }
+
     fun hasUsageAccess(): Boolean {
         val end = System.currentTimeMillis()
         val start = end - 60_000L
@@ -26,35 +32,7 @@ class UsageStatsRepository(private val context: Context) {
 
         // queryUsageStats() with INTERVAL_DAILY is a hint, I suppose, since it doesn't provide the correct day-based
         // data that we want. it's a bit annoying, but we need to use usage events instead to have stricter bounds
-
-        val durations = mutableMapOf<String, Long>()
-        val events = usageStatsManager().queryEvents(start, end)
-        var foregroundPackage: String? = null
-        var foregroundSince = start
-        val event = android.app.usage.UsageEvents.Event()
-
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            val packageName = event.packageName ?: continue
-            val isForeground =
-                event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED ||
-                event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND
-            val isBackground =
-                event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED ||
-                event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_BACKGROUND
-
-            if (isForeground) {
-                foregroundPackage?.let { durations[it] = (durations[it] ?: 0L) + event.timeStamp - foregroundSince }
-                foregroundPackage = packageName
-                foregroundSince = event.timeStamp.coerceAtLeast(start)
-            } else if (isBackground && packageName == foregroundPackage) {
-                durations[packageName] = (durations[packageName] ?: 0L) + event.timeStamp - foregroundSince
-                foregroundPackage = null
-            }
-        }
-        foregroundPackage?.let { durations[it] = (durations[it] ?: 0L) + end - foregroundSince }
-
-        val byPackage = durations.filterValues { it > 0 }
+        val byPackage = usageEventsBetween(start, end).orEmpty()
         return UsageSummary(
             totalMillis = byPackage.values.sum(),
             distractingMillis = byPackage.filterKeys { it in selectedPackages }.values.sum(),
@@ -62,6 +40,66 @@ class UsageStatsRepository(private val context: Context) {
         )
     }
 
-    private fun usageStatsManager() =
-        context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+    /**
+     * Get the best available usage data for the given date. This will use usage events if available but
+     * fall back to aggregate stats
+     */
+    fun usageForDate(date: LocalDate): List<DailyUsageEntity> {
+        val zone = ZoneId.systemDefault()
+        val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            .coerceAtMost(System.currentTimeMillis())
+        val durations = usageEventsBetween(start, end) ?: usageStatsBetween(start, end)
+        return durations.map { (packageName, millis) -> DailyUsageEntity(date.toString(), packageName, millis) }
+    }
+
+    /**
+     * Return usage foreground durations based on UsageStatsManager's aggregate statistics between the given times.
+     * This is a fallback for when usage events are not available, but it may be inaccurate
+     * since it only provides daily totals and not strict bounds
+     */
+    private fun usageStatsBetween(start: Long, end: Long): Map<String, Long> =
+        usageStatsManager().queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, end)
+            .groupBy { it.packageName }
+            .mapValues { (_, stats) -> stats.sumOf { it.totalTimeInForeground } }
+            .filterValues { it > 0 }
+
+    /**
+     * Return usage foreground durations based on events between the given times.
+     * UsageStatsManager only provides events for the past "few" days, however, so this may not return anything.
+     */
+    private fun usageEventsBetween(start: Long, end: Long): Map<String, Long>? {
+        val durations = mutableMapOf<String, Long>()
+        var foregroundPackage: String? = null
+        var foregroundSince = start
+
+        val events = usageStatsManager().queryEvents(start, end)
+        val event = android.app.usage.UsageEvents.Event()
+        var foundEvent = false
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            foundEvent = true
+            val packageName = event.packageName ?: continue
+            val foreground =
+                event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED ||
+                event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND
+            val background =
+                event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED ||
+                event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_BACKGROUND
+
+            if (foreground) {
+                foregroundPackage?.let { durations[it] = (durations[it] ?: 0) + event.timeStamp - foregroundSince }
+                foregroundPackage = packageName
+                foregroundSince = event.timeStamp.coerceIn(start, end)
+            } else if (background && packageName == foregroundPackage) {
+                durations[packageName] = (durations[packageName] ?: 0) + event.timeStamp - foregroundSince
+                foregroundPackage = null
+            }
+        }
+
+        foregroundPackage?.let { durations[it] = (durations[it] ?: 0) + end - foregroundSince }
+        return if (foundEvent) durations.filterValues { it > 0 } else null
+    }
+
+    private fun usageStatsManager() = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
 }

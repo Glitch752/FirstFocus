@@ -19,6 +19,20 @@ interface AppDao {
     @Query("DELETE FROM selected_apps WHERE packageName = :packageName")
     suspend fun removeSelectedApp(packageName: String)
 
+    // daily usage history
+
+    @Query("SELECT * FROM daily_usage WHERE date >= :since ORDER BY date DESC, foregroundMillis DESC")
+    fun observeDailyUsage(since: String): Flow<List<DailyUsageEntity>>
+
+    @Query("DELETE FROM daily_usage")
+    suspend fun clearDailyUsage()
+
+    @Insert
+    suspend fun insertDailyUsage(entries: List<DailyUsageEntity>)
+
+    @Query("DELETE FROM daily_usage WHERE date = :date")
+    suspend fun clearDailyUsage(date: String)
+
     // allowances
 
     @Query("SELECT * FROM temporary_allowances WHERE packageName = :packageName AND expiresAtMillis > :now LIMIT 1")

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -19,6 +20,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.focus.permissions.PermissionViewModel
 import com.example.focus.permissions.RequiredPermissionBanners
 import com.example.focus.usage.UsageViewModel
+import com.example.focus.usage.UsageStatsRepository
 
 @Composable
 fun HomeScreen(
@@ -36,6 +38,14 @@ fun HomeScreen(
             Box(Modifier.fillMaxWidth()) { CircularProgressIndicator() }
         }
 
+        if (state.isRegeneratingHistory) {
+            Text("Updating usage history...")
+            LinearProgressIndicator(
+                progress = state.historyProgress / UsageStatsRepository.HISTORY_DAYS.toFloat(),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
         // TODO: More detailed usage stats, including per app, either here or on click
         SummaryRow("Phone usage today", formatDuration(state.summary.totalMillis))
         SummaryRow("Distracting apps", formatDuration(state.summary.distractingMillis))
@@ -43,7 +53,9 @@ fun HomeScreen(
         SummaryRow("Daily target", "todo ")
         
         Text("Statistics", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp))
-        Text("todo")
+        
+        val historyDays = state.history.map { it.date }.distinct().size
+        Text("${state.history.size} app-day records across $historyDays days")
     }
 }
 

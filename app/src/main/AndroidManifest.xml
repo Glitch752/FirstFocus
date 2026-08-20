@@ -46,6 +46,9 @@
         <receiver
             android:name=".focus.FocusSessionAlarmReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".usage.UsageRefreshReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

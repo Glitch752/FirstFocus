@@ -9,6 +9,7 @@ import androidx.datastore.preferences.preferencesDataStore
 val Context.focusDataStore by preferencesDataStore(name = "focus_settings")
 
 object SettingsKeys {
+    val usageHistoryLastUpdated = longPreferencesKey("usage_history_last_updated")
     val preOpenCountdownSeconds = intPreferencesKey("pre_open_countdown_seconds")
     val dailyDistractingTargetMillis = longPreferencesKey("daily_distracting_target_millis")
     val defaultFocusDurationMillis = longPreferencesKey("default_focus_duration_millis")
