@@ -4,18 +4,16 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.focus.data.local.AppDatabase
+import com.example.focus.data.local.DailyUsageCompleteness
 import com.example.focus.data.local.DailyUsageEntity
+import com.example.focus.data.local.DailyUsageStatusEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.datastore.preferences.core.edit
-import com.example.focus.data.settings.focusDataStore
-import com.example.focus.data.settings.SettingsKeys
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -73,16 +71,23 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun refreshHistoryIfNeeded() {
         viewModelScope.launch(Dispatchers.IO) {
-            val preferences = getApplication<Application>().focusDataStore.data.first()
-            val lastUpdated = preferences[SettingsKeys.usageHistoryLastUpdated] ?: 0L
-            val now = System.currentTimeMillis()
-            // 12 hours is super arbitrary, i don't know if we even need to
-            // run a full update but it could find inconsistencies i think
-            if (now - lastUpdated < 12 * 60 * 60_000L) return@launch
-            updateDays(listOf(LocalDate.now(ZoneId.systemDefault())))
-            getApplication<Application>().focusDataStore.edit {
-                it[SettingsKeys.usageHistoryLastUpdated] = now
-            }
+            val today = LocalDate.now(ZoneId.systemDefault())
+            val since = today.minusDays(UsageStatsRepository.HISTORY_DAYS - 1L)
+            val statuses = dao.dailyUsageStatuses(since.toString()).associateBy { it.date }
+
+            // update all days in the past HISTORY_DAYS that don't have a status
+            val days = (0 until UsageStatsRepository.HISTORY_DAYS).map { today.minusDays(it.toLong()) }
+                .filter { date ->
+                    statuses[date.toString()].let { it == null || it.completeness == DailyUsageCompleteness.PARTIAL }
+                }
+            if (days.isNotEmpty()) updateDays(days)
+        }
+    }
+
+    fun regenerateHistory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val today = LocalDate.now(ZoneId.systemDefault())
+            updateDays((0 until UsageStatsRepository.HISTORY_DAYS).map { today.minusDays(it.toLong()) })
         }
     }
 
@@ -90,9 +95,19 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(isRegeneratingHistory = true, historyProgress = 0)
         days.forEachIndexed { index, date ->
             dao.clearDailyUsage(date.toString())
-            repository.usageForDate(date).takeIf { it.isNotEmpty() }?.let { entries ->
+            val entries = repository.usageForDate(date)
+            entries.takeIf { it.isNotEmpty() }?.let {
                 dao.insertDailyUsage(entries)
             }
+
+            // update the day's status to indicate if we have full or partial data for it
+            // if it's today, we only have partial data, but for any other day we should have full data
+            dao.upsertDailyUsageStatus(DailyUsageStatusEntity(
+                date.toString(),
+                if (date == LocalDate.now(ZoneId.systemDefault())) DailyUsageCompleteness.PARTIAL else DailyUsageCompleteness.FULL,
+                System.currentTimeMillis()
+            ))
+
             _uiState.value = _uiState.value.copy(historyProgress = index + 1, historyDaysLoaded = days.size)
         }
         _uiState.value = _uiState.value.copy(isRegeneratingHistory = false)

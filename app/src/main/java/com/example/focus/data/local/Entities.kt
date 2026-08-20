@@ -15,6 +15,23 @@ data class DailyUsageEntity(
     val foregroundMillis: Long
 )
 
+/** This isn't a room entity, but it's the result of our daily usage queries */
+data class DailyUsageTotals(
+    val date: String,
+    val totalForegroundMillis: Long,
+    val distractingForegroundMillis: Long
+)
+
+enum class DailyUsageCompleteness { PARTIAL, FULL }
+
+@Entity(tableName = "daily_usage_status")
+data class DailyUsageStatusEntity(
+    @PrimaryKey val date: String,
+    /** I wanted to call this status, but it makes this hard to read, so completeness it is */
+    val completeness: DailyUsageCompleteness,
+    val updatedAtMillis: Long
+)
+
 enum class FocusSessionStatus {
     ACTIVE,
     COMPLETED,

@@ -271,6 +271,7 @@ fun TimeLineSlider(
                     val measured = textMeasurer.measure(label, labelStyle)
                     drawText(
                         textLayoutResult = measured,
+                        color = tickColor,
                         topLeft = Offset(x - measured.size.width / 2f, 0f)
                     )
                 }

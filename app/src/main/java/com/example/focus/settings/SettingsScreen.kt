@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.focus.permissions.RequiredPermissionBanners
+import com.example.focus.BuildConfig
 
 @Composable
 fun SettingsScreen(
@@ -74,6 +75,23 @@ fun SettingsScreen(
                     checked = automaticallyEnd,
                     onCheckedChange = viewModel::setAutomaticallyEnd
                 )
+            }
+
+            if (BuildConfig.DEBUG) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { navController.navigate("settings/debug") },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Debug", Modifier.padding(vertical = 8.dp))
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = "Navigate to debug settings",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

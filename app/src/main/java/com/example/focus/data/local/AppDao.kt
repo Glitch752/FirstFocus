@@ -13,6 +13,9 @@ interface AppDao {
     @Query("SELECT * FROM selected_apps ORDER BY packageName")
     fun observeSelectedApps(): Flow<List<SelectedAppEntity>>
 
+    @Query("SELECT packageName FROM selected_apps")
+    suspend fun selectedPackageNames(): List<String>
+
     @Upsert
     suspend fun upsertSelectedApp(app: SelectedAppEntity)
 
@@ -24,14 +27,31 @@ interface AppDao {
     @Query("SELECT * FROM daily_usage WHERE date >= :since ORDER BY date DESC, foregroundMillis DESC")
     fun observeDailyUsage(since: String): Flow<List<DailyUsageEntity>>
 
-    @Query("DELETE FROM daily_usage")
-    suspend fun clearDailyUsage()
+    @Query("DELETE FROM daily_usage WHERE date = :date")
+    suspend fun clearDailyUsage(date: String)
 
     @Insert
     suspend fun insertDailyUsage(entries: List<DailyUsageEntity>)
 
-    @Query("DELETE FROM daily_usage WHERE date = :date")
-    suspend fun clearDailyUsage(date: String)
+    @Query("""
+        SELECT date,
+            SUM(foregroundMillis) AS totalForegroundMillis,
+            SUM(CASE
+                WHEN packageName IN (SELECT packageName FROM selected_apps) THEN foregroundMillis
+                ELSE 0
+            END) AS distractingForegroundMillis
+        FROM daily_usage
+        WHERE date BETWEEN :fromDate AND :toDate
+        GROUP BY date
+        ORDER BY date
+    """)
+    suspend fun usageTotals(fromDate: String, toDate: String): List<DailyUsageTotals>
+
+    @Query("SELECT * FROM daily_usage_status WHERE date >= :since")
+    suspend fun dailyUsageStatuses(since: String): List<DailyUsageStatusEntity>
+
+    @Upsert
+    suspend fun upsertDailyUsageStatus(status: DailyUsageStatusEntity)
 
     // allowances
 

@@ -23,13 +23,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.focus.apps.AppSelectionScreen
+import com.example.focus.settings.DebugSettingsScreen
 import com.example.focus.settings.SettingsScreen
+import com.example.focus.usage.UsageViewModel
+import com.example.focus.BuildConfig
 
 private data class AppDestination(val route: String, val label: String, val icon: @Composable () -> Unit)
 
@@ -42,6 +46,7 @@ private val destinations = listOf(
 @Composable
 fun FocusApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
+    val usageViewModel: UsageViewModel = viewModel()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -100,10 +105,13 @@ fun FocusApp(modifier: Modifier = Modifier) {
             popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(250)) },
             popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(250)) }
         ) {
-            composable("home") { HomeScreen() }
+            composable("home") { HomeScreen(viewModel = usageViewModel) }
             composable("focus") { FocusSessionScreen() }
             composable("settings") { SettingsScreen(navController) }
             composable("settings/apps") { AppSelectionScreen(navController) }
+            if (BuildConfig.DEBUG) {
+                composable("settings/debug") { DebugSettingsScreen(navController, usageViewModel) }
+            }
         }
     }
 }

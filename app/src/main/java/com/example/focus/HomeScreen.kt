@@ -53,9 +53,9 @@ fun HomeScreen(
         SummaryRow("Daily target", "todo ")
         
         Text("Statistics", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp))
-        
+
         val historyDays = state.history.map { it.date }.distinct().size
-        Text("${state.history.size} app-day records across $historyDays days")
+        Text("${state.history.size} records across $historyDays days")
     }
 }
 

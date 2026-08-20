@@ -1,6 +1,7 @@
 package com.example.focus.data.local
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -9,12 +10,17 @@ import androidx.room.RoomDatabase
     entities = [
         SelectedAppEntity::class,
         DailyUsageEntity::class,
+        DailyUsageStatusEntity::class,
         FocusSessionEntity::class,
         TemporaryAllowanceEntity::class,
         FocusReminderEntity::class
     ],
-    version = 1,
-    exportSchema = false
+    version = 3,
+    exportSchema = true,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2),
+        AutoMigration(from = 2, to = 3)
+    ]
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao

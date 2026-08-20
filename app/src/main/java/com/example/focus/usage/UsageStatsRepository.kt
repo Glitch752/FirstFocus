@@ -15,7 +15,7 @@ data class UsageSummary(
 class UsageStatsRepository(private val context: Context) {
     companion object {
         /** The number of days for which we'll regenerate historical data */
-        const val HISTORY_DAYS = 120
+        const val HISTORY_DAYS = 30
     }
 
     fun hasUsageAccess(): Boolean {
@@ -49,20 +49,10 @@ class UsageStatsRepository(private val context: Context) {
         val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
         val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
             .coerceAtMost(System.currentTimeMillis())
-        val durations = usageEventsBetween(start, end) ?: usageStatsBetween(start, end)
+        
+        val durations = usageEventsBetween(start, end).orEmpty()
         return durations.map { (packageName, millis) -> DailyUsageEntity(date.toString(), packageName, millis) }
     }
-
-    /**
-     * Return usage foreground durations based on UsageStatsManager's aggregate statistics between the given times.
-     * This is a fallback for when usage events are not available, but it may be inaccurate
-     * since it only provides daily totals and not strict bounds
-     */
-    private fun usageStatsBetween(start: Long, end: Long): Map<String, Long> =
-        usageStatsManager().queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, end)
-            .groupBy { it.packageName }
-            .mapValues { (_, stats) -> stats.sumOf { it.totalTimeInForeground } }
-            .filterValues { it > 0 }
 
     /**
      * Return usage foreground durations based on events between the given times.
@@ -77,8 +67,9 @@ class UsageStatsRepository(private val context: Context) {
         val event = android.app.usage.UsageEvents.Event()
         var foundEvent = false
         while (events.hasNextEvent()) {
-            events.getNextEvent(event)
             foundEvent = true
+
+            events.getNextEvent(event)
             val packageName = event.packageName ?: continue
             val foreground =
                 event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED ||
