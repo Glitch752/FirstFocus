@@ -4,9 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.focus.data.local.AppDatabase
+import com.example.focus.data.local.AppUsageTotal
 import com.example.focus.data.local.DailyUsageCompleteness
-import com.example.focus.data.local.DailyUsageEntity
 import com.example.focus.data.local.DailyUsageStatusEntity
+import com.example.focus.data.local.DailyUsageTotals
+import com.example.focus.data.local.FocusSessionSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,10 +28,14 @@ data class UsageUiState(
     /** Whether the summary data is being loaded */
     val isLoading: Boolean = false,
 
-    val history: List<DailyUsageEntity> = emptyList(),
-    val isRegeneratingHistory: Boolean = false,
-    val historyProgress: Int = 0,
-    val historyDaysLoaded: Int = 0
+    /** The daily app usage totals for the past year, padded with empty days if we don't have data for all of them */
+    val dailyTotals: List<DailyUsageTotals> = emptyList(),
+    /** The daily focus session times for the past year */
+    val dailyFocusSessions: List<FocusSessionSummary> = emptyList(),
+    /** The top apps for today, sorted by foreground time */
+    val todayApps: List<AppUsageTotal> = emptyList(),
+    /** The top apps for the past week, sorted by foreground time */
+    val weekApps: List<AppUsageTotal> = emptyList()
 )
 
 class UsageViewModel(application: Application) : AndroidViewModel(application) {
@@ -41,12 +47,6 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         UsageRefreshScheduler(application).scheduleNext()
-        viewModelScope.launch {
-            val since = LocalDate.now(ZoneId.systemDefault()).minusDays(30).toString()
-            dao.observeDailyUsage(since).collectLatest { history ->
-                _uiState.value = _uiState.value.copy(history = history)
-            }
-        }
         viewModelScope.launch {
             dao.observeSelectedApps().collectLatest { apps ->
                 _uiState.value = _uiState.value.copy(selectedPackages = apps.map { it.packageName }.toSet())
@@ -66,7 +66,28 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
                 summary = summary,
                 isLoading = false
             )
+            loadCharts()
         }
+    }
+
+    /** Load data for the charts on the home screen */
+    private suspend fun loadCharts() {
+        val today = LocalDate.now(ZoneId.systemDefault())
+        // 1 year to the nearest monday
+        val totalDays = ((today.dayOfYear + 7 - (today.dayOfWeek.value - 1)) % 7 + 365).toLong()
+        val yearAgo = today.minusDays(totalDays)
+        val weekAgo = today.minusDays(7)
+        val daily = dao.usageTotals(yearAgo.toString(), today.toString())
+        _uiState.value = _uiState.value.copy(
+            // pad to the total length even if we don't have data from all days
+            dailyTotals = (daily.size until totalDays).reversed().map { DailyUsageTotals(
+                today.minusDays(it).toString(),
+                0, 0
+            ) } + daily,
+            dailyFocusSessions = dao.focusSummaries(yearAgo.plusDays(1).toString(), today.toString()),
+            todayApps = dao.topApps(today.toString(), today.toString(), 1000L * 60L * 5L),
+            weekApps = dao.topApps(weekAgo.toString(), today.toString(), 1000L * 60L * 5L)
+        )
     }
 
     private fun refreshHistoryIfNeeded() {
@@ -92,7 +113,6 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun updateDays(days: List<LocalDate>) {
-        _uiState.value = _uiState.value.copy(isRegeneratingHistory = true, historyProgress = 0)
         days.forEachIndexed { index, date ->
             dao.clearDailyUsage(date.toString())
             val entries = repository.usageForDate(date)
@@ -107,9 +127,6 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
                 if (date == LocalDate.now(ZoneId.systemDefault())) DailyUsageCompleteness.PARTIAL else DailyUsageCompleteness.FULL,
                 System.currentTimeMillis()
             ))
-
-            _uiState.value = _uiState.value.copy(historyProgress = index + 1, historyDaysLoaded = days.size)
         }
-        _uiState.value = _uiState.value.copy(isRegeneratingHistory = false)
     }
 }

@@ -7,10 +7,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -19,43 +20,81 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.focus.permissions.PermissionViewModel
 import com.example.focus.permissions.RequiredPermissionBanners
+import com.example.focus.ui.components.charts.AppBarChart
+import com.example.focus.ui.components.charts.DailyChart
+import com.example.focus.ui.components.charts.Timeline
 import com.example.focus.usage.UsageViewModel
-import com.example.focus.usage.UsageStatsRepository
+import java.time.LocalDate
+
+val PAGE_PADDING = 18.dp
 
 @Composable
 fun HomeScreen(
     viewModel: UsageViewModel = viewModel(),
     permissionViewModel: PermissionViewModel = viewModel()
 ) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val usageState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissionState by permissionViewModel.uiState.collectAsStateWithLifecycle()
-    Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(PAGE_PADDING),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
         Text("Focus", style = MaterialTheme.typography.headlineLarge)
 
         if (!permissionState.isChecking && !permissionState.allGranted) {
             RequiredPermissionBanners(viewModel = permissionViewModel)
-        } else if (state.isLoading) {
+        } else if (usageState.isLoading) {
             Box(Modifier.fillMaxWidth()) { CircularProgressIndicator() }
         }
 
-        if (state.isRegeneratingHistory) {
-            Text("Updating usage history...")
-            LinearProgressIndicator(
-                progress = state.historyProgress / UsageStatsRepository.HISTORY_DAYS.toFloat(),
-                modifier = Modifier.fillMaxWidth()
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            SummaryRow("Phone usage today", formatDuration(usageState.summary.totalMillis))
+            SummaryRow("Distracting apps", formatDuration(usageState.summary.distractingMillis))
+            SummaryRow("Focus time today", formatDuration(usageState.dailyFocusSessions.lastOrNull()?.finishedMillis ?: 0L))
         }
 
-        // TODO: More detailed usage stats, including per app, either here or on click
-        SummaryRow("Phone usage today", formatDuration(state.summary.totalMillis))
-        SummaryRow("Distracting apps", formatDuration(state.summary.distractingMillis))
-        SummaryRow("Focus time today", "todo")
-        SummaryRow("Daily target", "todo ")
-        
-        Text("Statistics", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp))
+        // todo: some sort of "shame statistic", like:
+        // - "you spent 2 hours more than your average on distracting apps today"
+        // - "you spent 30% of your day on Youtube today"
+        // stuff like that
 
-        val historyDays = state.history.map { it.date }.distinct().size
-        Text("${state.history.size} records across $historyDays days")
+        if (usageState.dailyTotals.isEmpty()) {
+            Text("Loading usage data...", style = MaterialTheme.typography.bodyMedium)
+            CircularProgressIndicator(Modifier.padding(8.dp))
+        } else {
+            // TODO: more data analysis on click of many of these charts
+
+            val usageStartDay = LocalDate.parse(usageState.dailyTotals[0].date)
+            Timeline(
+                "Total phone usage",
+                usageState.dailyTotals.map { it.totalForegroundMillis },
+                MaterialTheme.colorScheme.primary,
+                usageStartDay,
+                formatValue = { formatDuration(it) }
+            )
+            Timeline(
+                "Distracting app usage",
+                usageState.dailyTotals.map { it.distractingForegroundMillis },
+                MaterialTheme.colorScheme.secondary,
+                usageStartDay,
+                formatValue = { formatDuration(it) }
+            )
+            val focusStartDay = LocalDate.parse(usageState.dailyFocusSessions[0].date)
+            Timeline(
+                "Focus session time",
+                usageState.dailyFocusSessions.map { it.finishedMillis },
+                MaterialTheme.colorScheme.inverseSurface,
+                focusStartDay,
+                formatValue = { formatDuration(it) }
+            )
+
+            DailyChart(usageState.dailyTotals, usageState.dailyFocusSessions)
+
+            // TODO: hourly usage charts?
+
+            AppBarChart("Apps used today", usageState.todayApps)
+            AppBarChart("Apps used this week", usageState.weekApps)
+        }
     }
 }
 
