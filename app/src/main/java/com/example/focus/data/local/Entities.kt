@@ -1,6 +1,7 @@
 package com.example.focus.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "selected_apps")
@@ -15,12 +16,14 @@ data class DailyUsageEntity(
     val foregroundMillis: Long
 )
 
-/** This isn't a room entity, but it's the result of our daily usage queries */
+/** This isn't a room entity, but it's the result of usage totals queries */
 data class DailyUsageTotals(
     val date: String,
     val totalForegroundMillis: Long,
     val distractingForegroundMillis: Long
 )
+/** This isn't a room entity, but the result of top apps queries */
+data class AppUsageTotal(val packageName: String, val foregroundMillis: Long, val isDistracting: Boolean)
 
 enum class DailyUsageCompleteness { PARTIAL, FULL }
 
@@ -32,13 +35,22 @@ data class DailyUsageStatusEntity(
     val updatedAtMillis: Long
 )
 
+/** This isn't a room entity, but the result of focus session queries */
+data class FocusSessionSummary(val date: String, val finishedMillis: Long, val skippedMillis: Long)
+
 enum class FocusSessionStatus {
     ACTIVE,
     COMPLETED,
     CANCELLED
 }
 
-@Entity(tableName = "focus_sessions")
+@Entity(
+    tableName = "focus_sessions",
+    indices = [
+        // speeds up our aggregation queries significantly
+        Index(value = ["startedAtMillis", "endedAtMillis"])
+    ]
+)
 data class FocusSessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val startedAtMillis: Long,
