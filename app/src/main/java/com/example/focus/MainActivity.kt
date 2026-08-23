@@ -4,22 +4,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
+import com.example.focus.focus.FocusSessionNotificationManager
 import com.example.focus.ui.theme.FocusTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        FocusSessionNotificationManager.createChannels(this)
         setContent {
             FocusTheme {
-                FocusApp()
+                FocusApp(
+                    openFocusOnStart = intent.getBooleanExtra(EXTRA_OPEN_FOCUS, false)
+                )
             }
         }
+    }
+
+    companion object {
+        /** An intent extra used to indicate we should open to the focus page, used when opening the app from a notification */
+        const val EXTRA_OPEN_FOCUS = "open_focus"
     }
 }

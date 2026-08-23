@@ -8,6 +8,7 @@ import com.example.focus.data.local.AppDatabase
 import com.example.focus.data.local.FocusSessionEntity
 import com.example.focus.data.settings.SettingsKeys
 import com.example.focus.data.settings.focusDataStore
+import com.example.focus.focus.FocusSessionNotificationManager
 import com.example.focus.focus.FocusSessionRepository
 import com.example.focus.usage.UsageStatsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +37,7 @@ class FocusAccessibilityService : AccessibilityService() {
     private val usageRepository by lazy { UsageStatsRepository(applicationContext) }
     private val allowanceRepository by lazy { AllowanceRepository(AppDatabase.create(applicationContext).appDao()) }
     private val focusSessionRepository by lazy { FocusSessionRepository(AppDatabase.create(applicationContext).appDao()) }
+    private val notifications by lazy { FocusSessionNotificationManager(applicationContext) }
     /** A job that waits for the current allowance to expire, if any */
     private var allowanceExpirationJob: Job? = null
     /** A separate coroutine scope for the allowance expiration job, so we can cancel it without cancelling the main scope */
@@ -94,10 +96,13 @@ class FocusAccessibilityService : AccessibilityService() {
             // not sure if this is best practice since we have nested scope.launch calls, but oh well
             scope.launch {
                 val activeSession = focusSessionRepository.activeSession()
-                if (activeSession != null) showFocusBlock(packageName, activeSession)
+                if (activeSession != null) {
+                    showFocusBlock(packageName, activeSession)
+                }
                 else showPrompt(packageName)
             }
         } else {
+            notifications.cancelAllowance()
             allowanceExpirationJob?.cancel()
             overlayController.remove(clearDismissal = true)
         }
@@ -129,9 +134,17 @@ class FocusAccessibilityService : AccessibilityService() {
             val now = System.currentTimeMillis()
             if (!ignoreAllowance && allowanceRepository.hasActiveAllowance(packageName, now)) {
                 val expiresAt = allowanceRepository.getAllowanceExpiration(packageName, now)
-                if (expiresAt != null) restartExpirationJob(expiresAt, packageName)
+                if (expiresAt != null) {
+                    val label = packageManager.getApplicationLabel(
+                        packageManager.getApplicationInfo(packageName, 0)
+                    ).toString()
+                    notifications.showAllowance(label, expiresAt)
+                    restartExpirationJob(expiresAt, packageName)
+                }
                 return@launch
             }
+
+            notifications.cancelAllowance()
 
             val settings = applicationContext.focusDataStore.data.first()
             val selected = selectedPackages
@@ -156,6 +169,11 @@ class FocusAccessibilityService : AccessibilityService() {
                         // holy back-and-forth between threads omg
                         scope.launch {
                             val expiresAt = allowanceRepository.grantAllowance(packageName, durationMillis)
+                            val label = packageManager.getApplicationLabel(
+                                packageManager.getApplicationInfo(packageName, 0)
+                            ).toString()
+                            Log.d("FocusAccessibilityService", "Granted allowance for $packageName until $expiresAt")
+                            notifications.showAllowance(label, expiresAt)
                             restartExpirationJob(expiresAt, packageName)
                         }
                     }

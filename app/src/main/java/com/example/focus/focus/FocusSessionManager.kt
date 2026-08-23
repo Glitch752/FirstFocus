@@ -31,6 +31,7 @@ class FocusSessionManager private constructor(context: Context) {
     private val repository = FocusSessionRepository(dao)
     private val scheduler = FocusSessionAlarmScheduler(appContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val notifications = FocusSessionNotificationManager(appContext)
     private var expirationJob: Job? = null
 
     val active: Flow<FocusSessionEntity?> = dao.observeActiveFocusSession()
@@ -42,6 +43,8 @@ class FocusSessionManager private constructor(context: Context) {
             combine(active, automaticallyEnd) { session, enabled -> session to enabled }
                 .distinctUntilChanged()
                 .collectLatest { (session, enabled) ->
+                    if (session == null) notifications.cancelActiveSession()
+                    else notifications.showActiveSession(session)
                     expirationJob?.cancel()
                     if (session == null) return@collectLatest
                     val expiration = session.startedAtMillis + session.plannedDurationMillis

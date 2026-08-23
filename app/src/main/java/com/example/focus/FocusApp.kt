@@ -44,7 +44,7 @@ private val destinations = listOf(
 )
 
 @Composable
-fun FocusApp(modifier: Modifier = Modifier) {
+fun FocusApp(modifier: Modifier = Modifier, openFocusOnStart: Boolean = false) {
     val navController = rememberNavController()
     val usageViewModel: UsageViewModel = viewModel()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -94,7 +94,7 @@ fun FocusApp(modifier: Modifier = Modifier) {
 
         NavHost(
             navController,
-            "home",
+            if (openFocusOnStart) "focus" else "home",
             Modifier.padding(paddingValues),
             enterTransition = {
                 slideIntoContainer(destinationDirection(initialState.destination.route, targetState.destination.route), tween(250))
