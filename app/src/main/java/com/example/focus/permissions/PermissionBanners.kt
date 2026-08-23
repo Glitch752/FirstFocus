@@ -1,6 +1,5 @@
 package com.example.focus.permissions
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,14 +16,17 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun RequiredPermissionBanners(
@@ -33,6 +35,11 @@ fun RequiredPermissionBanners(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    /** If there's a permission request that requires a confirmation modal, this will be set to it */
+    var pendingRequest by remember { mutableStateOf<PendingPermissionRequest?>(null) }
+    /** Request the given permission by starting its intent */
+    fun requestPermission(permission: RequiredPermission) = context.startActivity(permission.intent())
 
     // Refresh permissions when the app resumes
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -47,14 +54,39 @@ fun RequiredPermissionBanners(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (!state.isChecking) {
             state.missing.forEach { permission ->
-                PermissionBanner(permission, context)
+                PermissionBanner(
+                    permission = permission,
+                    onGrant = {
+                        val modal = permission.confirmModal()
+                        if (modal == null) requestPermission(permission)
+                        else pendingRequest = PendingPermissionRequest(permission, modal)
+                    }
+                )
             }
         }
     }
+
+    pendingRequest?.let { request ->
+        request.modal.content(
+            {
+                pendingRequest = null
+                requestPermission(request.permission)
+            },
+            { pendingRequest = null }
+        )
+    }
 }
 
+private data class PendingPermissionRequest(
+    val permission: RequiredPermission,
+    val modal: ConfirmPermissionModal
+)
+
 @Composable
-private fun PermissionBanner(permission: RequiredPermission, context: Context) {
+private fun PermissionBanner(
+    permission: RequiredPermission,
+    onGrant: () -> Unit
+) {
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors().copy(
         containerColor = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer
@@ -70,7 +102,7 @@ private fun PermissionBanner(permission: RequiredPermission, context: Context) {
             }
             Spacer(Modifier.width(8.dp))
             TextButton(
-                onClick = { context.startActivity(permission.intent()) },
+                onClick = onGrant,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.onSurface
