@@ -1,11 +1,13 @@
 package com.example.focus.permissions
 
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.AppOpsManager
 import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Process
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import androidx.annotation.RequiresApi
@@ -56,9 +58,13 @@ object UsageAccessPermission : RequiredPermission {
     override val description = "Allows measuring app usage for statistics"
 
     override suspend fun isGranted(context: Context): Boolean {
-        val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
-        val now = System.currentTimeMillis()
-        return manager.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, now - 60_000, now).isNotEmpty()
+        // this is such a weird api what
+        val appOps = context.getSystemService(AppOpsManager::class.java)
+        return appOps.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            Process.myUid(),
+            context.packageName
+        ) == AppOpsManager.MODE_ALLOWED
     }
 
     override fun intent() = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)

@@ -27,19 +27,23 @@
         android:appCategory="productivity">
         <!-- Ugh. Samsung restricts apps that use live notifications to a whitelist:
             https://www.androidauthority.com/one-ui-8-live-updates-support-3573794/
-            https://sammyguru.com/now-bar-internet-speed-meter-unofficial-app/ -->
+            https://sammyguru.com/now-bar-internet-speed-meter-unofficial-app/
+            Who knows if this does anything, but it's in other apps that use live notifications. -->
         <meta-data
             android:name="com.samsung.android.support.ongoing_activity"
             android:value="true" />
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Focus">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <service
             android:name=".accessibility.FocusAccessibilityService"
             android:exported="true"
@@ -52,8 +56,12 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+
         <receiver
             android:name=".focus.FocusSessionAlarmReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".focus.FocusReminderReceiver"
             android:exported="false" />
         <receiver
             android:name=".usage.UsageRefreshReceiver"

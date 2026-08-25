@@ -25,20 +25,12 @@ class FocusSessionNotificationManager(private val context: Context) {
     private val notificationScope = CoroutineScope(Dispatchers.Main.immediate)
     private val countdownJobs = mutableMapOf<Int, Job>()
 
-    fun showActiveSession(session: FocusSessionEntity) {
-        showCountdown(ACTIVE_SESSION_ID, session.startedAtMillis + session.plannedDurationMillis) { remaining ->
-            activeSessionNotification(remaining)
-        }
-    }
-
-    fun cancelActiveSession() {
-        cancelCountdown(ACTIVE_SESSION_ID)
-        manager.cancel(ACTIVE_SESSION_ID)
-    }
-
-    private fun focusIntent() = PendingIntent.getActivity(
-        context, 0,
-        Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_FOCUS, true),
+    /** Intent that opens the app on the focus screen */
+    private fun focusIntent(requestCode: Int = 0) = PendingIntent.getActivity(
+        context, requestCode,
+        Intent(context, MainActivity::class.java)
+            .setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(MainActivity.EXTRA_OPEN_FOCUS, true),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
@@ -76,13 +68,37 @@ class FocusSessionNotificationManager(private val context: Context) {
         liveUpdateCountdownNotification(remaining, "Focus allowance")
         .setContentText("$packageLabel allowed · ${formatRemaining(remaining)} remaining").build()
 
+    /**  Show the notification for the active focus session, with a countdown timer */
+    fun showActiveSession(session: FocusSessionEntity) {
+        showCountdown(ACTIVE_SESSION_ID, session.startedAtMillis + session.plannedDurationMillis) { remaining ->
+            activeSessionNotification(remaining)
+        }
+    }
+    /** Cancel the notification for the active focus session */
+    fun cancelActiveSession() {
+        cancelCountdown(ACTIVE_SESSION_ID)
+        manager.cancel(ACTIVE_SESSION_ID)
+    }
+
+    /** Show the notification for a temporary allowance for a distracting app */
     fun showAllowance(packageLabel: String, expiresAtMillis: Long) {
         showCountdown(ALLOWANCE_ID, expiresAtMillis) { remaining -> allowanceNotification(remaining, packageLabel) }
     }
-
+    /** Cancel the notification for a temporary allowance for a distracting app */
     fun cancelAllowance() {
         cancelCountdown(ALLOWANCE_ID)
         manager.cancel(ALLOWANCE_ID)
+    }
+
+    /** Show the notification for a focus session reminder */
+    fun showReminder(title: String) {
+        manager.notify(
+            REMINDER_ID,
+            baseNotification(CHANNEL_SESSION_REMINDERS, title)
+                .setContentText("Time for a focus session")
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .build()
+        )
     }
 
     private fun showCountdown(id: Int, endAtMillis: Long, notification: (remainingMillis: Long) -> android.app.Notification) {
@@ -123,6 +139,8 @@ class FocusSessionNotificationManager(private val context: Context) {
         private const val ACTIVE_SESSION_ID = 1001
         /** Notification id for the temporary allowance notification */
         private const val ALLOWANCE_ID = 1002
+        /** Notification id for focus reminder notifications */
+        private const val REMINDER_ID = 1003
 
         /** Creates the notification channels for focus session reminders and status. Should be called once on app startup. */
         fun createChannels(context: Context) {
