@@ -8,6 +8,23 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AppDao {
+    // focus reminders
+
+    @Query("SELECT * FROM focus_reminders ORDER BY hour, minute, id")
+    fun observeFocusReminders(): Flow<List<FocusReminderEntity>>
+
+    @Query("SELECT * FROM focus_reminders")
+    suspend fun focusReminders(): List<FocusReminderEntity>
+
+    @Insert
+    suspend fun insertFocusReminder(reminder: FocusReminderEntity): Long
+
+    @Upsert
+    suspend fun upsertFocusReminder(reminder: FocusReminderEntity)
+
+    @Query("DELETE FROM focus_reminders WHERE id = :id")
+    suspend fun deleteFocusReminder(id: Long)
+
     // selected apps
 
     @Query("SELECT * FROM selected_apps ORDER BY packageName")

@@ -1,5 +1,6 @@
 package com.example.focus.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -68,9 +69,16 @@ data class TemporaryAllowanceEntity(
 @Entity(tableName = "focus_reminders")
 data class FocusReminderEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(defaultValue = "Focus reminder") val title: String,
     val hour: Int,
     val minute: Int,
     val enabled: Boolean,
-    val daysOfWeek: String,
+    /** Bit mask of weekdays, using Calendar.DAY_OF_WEEK as the bit index. */
+    @ColumnInfo(defaultValue = "0") val daysOfWeek: Int,
     val durationMillis: Long
-)
+) {
+    fun daysOfWeekAsString(): String {
+        val days = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+        return days.filterIndexed { index, _ -> (daysOfWeek and (1 shl index)) != 0 }.joinToString(", ")
+    }
+}
