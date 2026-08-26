@@ -20,20 +20,26 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.focus.apps.AppSelectionScreen
 import com.example.focus.settings.DebugSettingsScreen
+import com.example.focus.settings.FocusReminderEditorScreen
+import com.example.focus.settings.FocusRemindersScreen
 import com.example.focus.settings.SettingsScreen
 import com.example.focus.usage.UsageViewModel
-import com.example.focus.BuildConfig
+import kotlinx.coroutines.flow.Flow
 
 private data class AppDestination(val route: String, val label: String, val icon: @Composable () -> Unit)
 
@@ -43,12 +49,33 @@ private val destinations = listOf(
     AppDestination("settings", "Settings") { Icon(Icons.Default.Settings, null) }
 )
 
+/**
+ * The main app composable
+ * @param modifier Modifier to apply to the root of the app
+ * @param openFocusOnStart Whether to open the focus screen on app start
+ * @param openFocusRequests A flow of requests to open the focus screen.
+ *      This is used to handle notifications without recreating the full app
+ */
 @Composable
-fun FocusApp(modifier: Modifier = Modifier, openFocusOnStart: Boolean = false) {
+fun FocusApp(
+    modifier: Modifier = Modifier,
+    openFocusOnStart: Boolean = false,
+    openFocusRequests: Flow<Unit> = kotlinx.coroutines.flow.emptyFlow()
+) {
     val navController = rememberNavController()
     val usageViewModel: UsageViewModel = viewModel()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+
+    // NavHost only reads startDestination once on creation, so we navigate manually with requests after that
+    LaunchedEffect(navController, openFocusRequests) {
+        openFocusRequests.collect {
+            navController.navigate("focus") {
+                launchSingleTop = true
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            }
+        }
+    }
 
     Scaffold(
         // Remove all padding from the scaffold
@@ -60,14 +87,15 @@ fun FocusApp(modifier: Modifier = Modifier, openFocusOnStart: Boolean = false) {
                         selected = currentRoute == destination.route,
                         onClick = {
                             if (destination.route == currentRoute) return@NavigationBarItem
-                            navController.navigate(destination.route) {
-                                // I honestly don't know what here does, but this helps prevent multiple copies of each destination
-                                // from being here created
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            // if we're on a subpage of the destination, pop back to it
+                            if (!navController.popBackStack(destination.route, inclusive = false)) {
+                                navController.navigate(destination.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
                         },
                         icon = destination.icon,
@@ -109,6 +137,16 @@ fun FocusApp(modifier: Modifier = Modifier, openFocusOnStart: Boolean = false) {
             composable("focus") { FocusSessionScreen() }
             composable("settings") { SettingsScreen(navController) }
             composable("settings/apps") { AppSelectionScreen(navController) }
+            composable("settings/reminders") { FocusRemindersScreen(navController) }
+            composable(
+                "settings/reminders/edit/{reminderId}",
+                arguments = listOf(navArgument("reminderId") { type = NavType.LongType })
+            ) { entry ->
+                val reminderId = entry.arguments?.getLong("reminderId") ?: 0L
+                val remindersViewModel: com.example.focus.settings.FocusRemindersViewModel = viewModel()
+                val reminders by remindersViewModel.reminders.collectAsStateWithLifecycle()
+                FocusReminderEditorScreen(navController, reminders.firstOrNull { it.id == reminderId }, remindersViewModel)
+            }
             if (BuildConfig.DEBUG) {
                 composable("settings/debug") { DebugSettingsScreen(navController, usageViewModel) }
             }
