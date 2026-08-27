@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -58,6 +59,21 @@ fun SettingsScreen(
                 // TODO: Selected count here?
             }
 
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { navController.navigate("settings/reminders") },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Focus reminders", Modifier.padding(vertical = 8.dp))
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = "Navigate to focus reminders",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             Column {
                 Text("Focus check countdown: ${countdownSeconds}s")
                 Slider(
@@ -77,6 +93,8 @@ fun SettingsScreen(
             ) {
                 Text("Automatically end focus sessions")
                 Switch(
+                    // used primarily as a visual indicator - our clickable area is larger, so this is okay
+                    modifier = Modifier.scale(0.8f),
                     checked = automaticallyEnd,
                     onCheckedChange = viewModel::setAutomaticallyEnd
                 )
