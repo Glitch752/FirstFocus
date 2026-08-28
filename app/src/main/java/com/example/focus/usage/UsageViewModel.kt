@@ -50,7 +50,6 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             dao.observeSelectedApps().collectLatest { apps ->
                 _uiState.value = _uiState.value.copy(selectedPackages = apps.map { it.packageName }.toSet())
-                refreshHistoryIfNeeded()
                 refresh()
             }
         }
@@ -59,6 +58,10 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
     fun refresh() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
+
+            // Wait for today's usage to be persisted before querying the charts to prevent race conditions
+            refreshHistoryIfNeeded()
+
             val summary = if (repository.hasUsageAccess()) withContext(Dispatchers.IO) {
                 repository.today(_uiState.value.selectedPackages)
             } else UsageSummary()
@@ -90,19 +93,17 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    private fun refreshHistoryIfNeeded() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val today = LocalDate.now(ZoneId.systemDefault())
-            val since = today.minusDays(UsageStatsRepository.HISTORY_DAYS - 1L)
-            val statuses = dao.dailyUsageStatuses(since.toString()).associateBy { it.date }
+    private suspend fun refreshHistoryIfNeeded() = withContext(Dispatchers.IO) {
+        val today = LocalDate.now(ZoneId.systemDefault())
+        val since = today.minusDays(UsageStatsRepository.HISTORY_DAYS - 1L)
+        val statuses = dao.dailyUsageStatuses(since.toString()).associateBy { it.date }
 
-            // update all days in the past HISTORY_DAYS that don't have a status
-            val days = (0 until UsageStatsRepository.HISTORY_DAYS).map { today.minusDays(it.toLong()) }
-                .filter { date ->
-                    statuses[date.toString()].let { it == null || it.completeness == DailyUsageCompleteness.PARTIAL }
-                }
-            if (days.isNotEmpty()) updateDays(days)
-        }
+        // update all days in the past HISTORY_DAYS that don't have a status
+        val days = (0 until UsageStatsRepository.HISTORY_DAYS).map { today.minusDays(it.toLong()) }
+            .filter { date ->
+                statuses[date.toString()].let { it == null || it.completeness == DailyUsageCompleteness.PARTIAL }
+            }
+        if (days.isNotEmpty()) updateDays(days)
     }
 
     fun regenerateHistory() {
