@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -36,6 +35,8 @@ fun AppBarChart(title: String, values: List<AppUsageTotal>) {
     val rowSpacing = 4.dp
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // TODO: refresh button ?
+        // not really required since we frequently reload the data but it would feel nice
         Text(title, style = MaterialTheme.typography.titleLarge)
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -82,13 +83,14 @@ fun AppBarChart(title: String, values: List<AppUsageTotal>) {
                                 color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium, maxLines = 1)
                         }
                     } else {
-                        Box(Modifier.fillMaxWidth().height(rowHeight)) {
-                            Box(Modifier.fillMaxWidth(fraction).fillMaxSize()
-                                .clip(RoundedCornerShape(ChartUtils.CHART_BORDER_RADIUS))
-                                .background(color.copy(alpha = .2f + .8f * fraction)))
-                            Text(label, Modifier.align(Alignment.CenterEnd).padding(end = 8.dp),
-                                color = onBarColor, style = MaterialTheme.typography.labelMedium, maxLines = 1)
-                        }
+                        Box(Modifier.fillMaxWidth(fraction).fillMaxWidth()
+                            .height(rowHeight)
+                            .clip(RoundedCornerShape(ChartUtils.CHART_BORDER_RADIUS))
+                            .background(color.copy(alpha = .2f + .8f * fraction))
+                        ) {
+                                Text(label, Modifier.align(Alignment.CenterEnd).padding(end = 8.dp),
+                                    color = onBarColor, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                            }
                     }
                 }
             }
