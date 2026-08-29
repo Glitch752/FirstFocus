@@ -8,6 +8,8 @@
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <!-- if we're given it through adb -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
     <queries>
         <intent>
@@ -25,6 +27,16 @@
         android:isAccessibilityTool="false"
         android:enableOnBackInvokedCallback="true"
         android:appCategory="productivity">
+        <!-- Shizuku is an optional dependency for advanced features -->
+        <!-- android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" is to protect this provider from accessing by normal apps -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        
         <!-- Ugh. Samsung restricts apps that use live notifications to a whitelist:
             https://www.androidauthority.com/one-ui-8-live-updates-support-3573794/
             https://sammyguru.com/now-bar-internet-speed-meter-unofficial-app/

@@ -37,6 +37,7 @@ import com.example.focus.apps.AppSelectionScreen
 import com.example.focus.settings.DebugSettingsScreen
 import com.example.focus.settings.FocusReminderEditorScreen
 import com.example.focus.settings.FocusRemindersScreen
+import com.example.focus.settings.GrayscaleSettingsScreen
 import com.example.focus.settings.SettingsScreen
 import com.example.focus.usage.UsageViewModel
 import kotlinx.coroutines.flow.Flow
@@ -138,6 +139,7 @@ fun FocusApp(
             composable("settings") { SettingsScreen(navController) }
             composable("settings/apps") { AppSelectionScreen(navController) }
             composable("settings/reminders") { FocusRemindersScreen(navController) }
+            composable("settings/grayscale") { GrayscaleSettingsScreen(navController) }
             composable(
                 "settings/reminders/edit/{reminderId}",
                 arguments = listOf(navArgument("reminderId") { type = NavType.LongType })

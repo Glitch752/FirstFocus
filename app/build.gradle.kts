@@ -68,6 +68,8 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
     ksp(libs.androidx.room.compiler)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

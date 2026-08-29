@@ -9,7 +9,7 @@ Features:
 - When opening apps, ask for a desired usage time (0-30m) and prompt a reminder when the time is up
 - [ ] Choose a target daily usage across all distracting apps and prompt reminder when the target is reached
 - Focus sessions preventing selected apps from being opened for a set duration through an accessibility service
-  - [ ] Option to set screen to grayscale during focus sessions
+  - Optional grayscale screen during focus sessions (requires `WRITE_SECURE_SETTINGS` granted through ADB or Shizuku)
   - [ ] Reminders to start focus sessions at configurable times of day
 - Time (app and focus) tracking in a local database with graphs and statistics
 - [ ] Export and import of app data and settings to/from a simple JSON file

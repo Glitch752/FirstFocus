@@ -14,6 +14,7 @@ object SettingsKeys {
     val dailyDistractingTargetMillis = longPreferencesKey("daily_distracting_target_millis")
     val defaultFocusDurationMillis = longPreferencesKey("default_focus_duration_millis")
     val automaticallyEndFocusSessions = booleanPreferencesKey("automatically_end_focus_sessions")
+    val grayscaleDuringFocus = booleanPreferencesKey("grayscale_during_focus")
     /** Whether OEM-specific notification permission prompts have been dismissed */
     val oemNotificationPermissionDismissed = booleanPreferencesKey("oem_notification_permission_dismissed")
 }

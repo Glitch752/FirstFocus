@@ -42,7 +42,7 @@ fun SettingsScreen(
 
         RequiredPermissionBanners()
 
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -98,6 +98,17 @@ fun SettingsScreen(
                     checked = automaticallyEnd,
                     onCheckedChange = viewModel::setAutomaticallyEnd
                 )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { navController.navigate("settings/grayscale") },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Grayscale focus options", Modifier.padding(vertical = 8.dp))
+                Icon(Icons.Default.ChevronRight, "Navigate to grayscale settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             if (BuildConfig.DEBUG) {

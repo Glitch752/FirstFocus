@@ -7,6 +7,7 @@ import com.example.focus.data.local.AppDatabase
 import com.example.focus.data.local.FocusSessionEntity
 import com.example.focus.data.settings.SettingsKeys
 import com.example.focus.data.settings.focusDataStore
+import com.example.focus.grayscale.GrayscaleController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -32,6 +33,7 @@ class FocusSessionManager private constructor(context: Context) {
     private val scheduler = FocusSessionAlarmScheduler(appContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val notifications = FocusSessionNotificationManager(appContext)
+    private val grayscaleController = GrayscaleController(appContext)
     private var expirationJob: Job? = null
 
     val active: Flow<FocusSessionEntity?> = dao.observeActiveFocusSession()
@@ -39,6 +41,19 @@ class FocusSessionManager private constructor(context: Context) {
         .map { it[SettingsKeys.automaticallyEndFocusSessions] ?: true }
 
     init {
+        // Sync the screen grayscale state with the active focus session
+        scope.launch {
+            combine(
+                active,
+                appContext.focusDataStore.data.map { it[SettingsKeys.grayscaleDuringFocus] ?: false }
+            ) { session, grayscaleEnabled -> Pair(session != null, grayscaleEnabled) }
+                .distinctUntilChanged()
+                .collectLatest { (sessionActive, grayscaleEnabled) ->
+                    grayscaleController.setGrayscale(sessionActive && grayscaleEnabled)
+                }
+        }
+
+        // Handle the active focus session and its expiration
         scope.launch {
             combine(active, automaticallyEnd) { session, enabled -> session to enabled }
                 .distinctUntilChanged()
