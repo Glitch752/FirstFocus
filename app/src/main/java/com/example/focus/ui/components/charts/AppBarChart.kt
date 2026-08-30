@@ -34,6 +34,8 @@ fun AppBarChart(title: String, values: List<AppUsageTotal>) {
     val rowHeight = 18.dp
     val rowSpacing = 4.dp
 
+    val unknownAppIcon = LocalContext.current.packageManager.defaultActivityIcon
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // TODO: refresh button ?
         // not really required since we frequently reload the data but it would feel nice
@@ -44,7 +46,11 @@ fun AppBarChart(title: String, values: List<AppUsageTotal>) {
             Column(Modifier.width(120.dp), verticalArrangement = Arrangement.spacedBy(rowSpacing)) {
                 values.forEach { v ->
                     val context = LocalContext.current
-                    val applicationInfo = context.packageManager.getApplicationInfo(v.packageName, 0)
+                    val applicationInfo = try {
+                        context.packageManager.getApplicationInfo(v.packageName, 0)
+                    } catch (e: Exception) {
+                        null
+                    }
                     Row(
                         Modifier.height(rowHeight),
                         verticalAlignment = Alignment.CenterVertically,
@@ -53,10 +59,13 @@ fun AppBarChart(title: String, values: List<AppUsageTotal>) {
                         AndroidView(
                             factory = { ImageView(it) },
                             modifier = Modifier.size(rowHeight),
-                            update = { it.setImageDrawable(applicationInfo.loadIcon(context.packageManager)) }
+                            update = { it.setImageDrawable(
+                                applicationInfo?.loadIcon(context.packageManager) ?: unknownAppIcon
+                            ) }
                         )
                         Text(
-                            context.packageManager.getApplicationLabel(applicationInfo).toString(),
+                            applicationInfo ?.let { context.packageManager.getApplicationLabel(it).toString() }
+                                ?: v.packageName.substringAfterLast('.'),
                             style = MaterialTheme.typography.labelMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis

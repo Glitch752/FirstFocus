@@ -55,6 +55,8 @@ private val destinations = listOf(
  * The main app composable
  * @param modifier Modifier to apply to the root of the app
  * @param openFocusOnStart Whether to open the focus screen on app start
+ * @param regenerateHistoryOnStart Whether to regenerate the usage history on app start.
+ *      Used for new/imported databases, where 
  * @param openFocusRequests A flow of requests to open the focus screen.
  *      This is used to handle notifications without recreating the full app
  */
@@ -62,12 +64,17 @@ private val destinations = listOf(
 fun FocusApp(
     modifier: Modifier = Modifier,
     openFocusOnStart: Boolean = false,
+    regenerateHistoryOnStart: Boolean = false,
     openFocusRequests: Flow<Unit> = kotlinx.coroutines.flow.emptyFlow()
 ) {
     val navController = rememberNavController()
     val usageViewModel: UsageViewModel = viewModel()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+
+    LaunchedEffect(usageViewModel, regenerateHistoryOnStart) {
+        usageViewModel.start(regenerateHistoryOnStart)
+    }
 
     // NavHost only reads startDestination once on creation, so we navigate manually with requests after that
     LaunchedEffect(navController, openFocusRequests) {

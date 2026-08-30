@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
             FocusTheme {
                 FocusApp(
                     openFocusOnStart = openFocusOnStart,
+                    regenerateHistoryOnStart = intent.getBooleanExtra(EXTRA_REGENERATE_HISTORY, false),
                     openFocusRequests = focusOpenEvents
                 )
             }
@@ -52,5 +53,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** An intent extra used to indicate we should open to the focus page, used when opening the app from a notification */
         const val EXTRA_OPEN_FOCUS = "open_focus"
+        const val EXTRA_REGENERATE_HISTORY = "regenerate_history"
     }
 }

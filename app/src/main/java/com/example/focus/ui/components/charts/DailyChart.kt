@@ -59,8 +59,8 @@ fun DailyChart(usageDays: List<DailyUsageTotals>, focusDays: List<FocusSessionSu
     val scaleLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
 
     val listState = rememberLazyListState()
-    LaunchedEffect(Unit) {
-        listState.scrollToItem(index = usageDays.lastIndex)
+    LaunchedEffect(combined.size) {
+        if (combined.isNotEmpty()) listState.scrollToItem(index = combined.lastIndex)
     }
 
     val density = LocalDensity.current

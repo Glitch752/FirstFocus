@@ -111,7 +111,11 @@ class FocusAccessibilityService : AccessibilityService() {
     /** show the overlay focus prompt with a focus session block to indicate the app can't currently be used */
     private fun showFocusBlock(packageName: String, session: FocusSessionEntity) {
         scope.launch {
-            val label = packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+            val label = try {
+                packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+            } catch (e: Exception) {
+                packageName.substringAfterLast('.')
+            }
             withContext(Dispatchers.Main) {
                 overlayController.showFocusBlock(
                     appLabel = label,
@@ -135,9 +139,13 @@ class FocusAccessibilityService : AccessibilityService() {
             if (!ignoreAllowance && allowanceRepository.hasActiveAllowance(packageName, now)) {
                 val expiresAt = allowanceRepository.getAllowanceExpiration(packageName, now)
                 if (expiresAt != null) {
-                    val label = packageManager.getApplicationLabel(
-                        packageManager.getApplicationInfo(packageName, 0)
-                    ).toString()
+                    val label = try {
+                        packageManager.getApplicationLabel(
+                            packageManager.getApplicationInfo(packageName, 0)
+                        ).toString()
+                    } catch (e: Exception) {
+                        packageName.substringAfterLast('.')
+                    }
                     notifications.showAllowance(label, expiresAt)
                     restartExpirationJob(expiresAt, packageName)
                 }
@@ -149,7 +157,11 @@ class FocusAccessibilityService : AccessibilityService() {
             val settings = applicationContext.focusDataStore.data.first()
             val selected = selectedPackages
             val usage = usageRepository.today(selected).byPackage[packageName] ?: 0L
-            val label = packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+            val label = try {
+                packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+            } catch (e: Exception) {
+                packageName.substringAfterLast('.')
+            }
 
             withContext(Dispatchers.Main) {
                 // Continue dismisses this package until the foreground package changes, so we need to clear it
@@ -169,9 +181,13 @@ class FocusAccessibilityService : AccessibilityService() {
                         // holy back-and-forth between threads omg
                         scope.launch {
                             val expiresAt = allowanceRepository.grantAllowance(packageName, durationMillis)
-                            val label = packageManager.getApplicationLabel(
-                                packageManager.getApplicationInfo(packageName, 0)
-                            ).toString()
+                            val label = try {
+                                packageManager.getApplicationLabel(
+                                    packageManager.getApplicationInfo(packageName, 0)
+                                ).toString()
+                            } catch (e: Exception) {
+                                packageName.substringAfterLast('.')
+                            }
                             Log.d("FocusAccessibilityService", "Granted allowance for $packageName until $expiresAt")
                             notifications.showAllowance(label, expiresAt)
                             restartExpirationJob(expiresAt, packageName)

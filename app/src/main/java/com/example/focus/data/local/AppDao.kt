@@ -50,6 +50,10 @@ interface AppDao {
     @Insert
     suspend fun insertDailyUsage(entries: List<DailyUsageEntity>)
 
+    /**
+     * Get a summary of daily usage for a given date range.
+     * Both fromDate and toDate are inclusive.
+     */
     @Query("""
         SELECT date,
             SUM(foregroundMillis) AS totalForegroundMillis,
@@ -64,6 +68,10 @@ interface AppDao {
     """)
     suspend fun usageTotals(fromDate: String, toDate: String): List<DailyUsageTotals>
 
+    /**
+     * Get an aggregation of the top apps across a certain date range.
+     * Both fromDate and toDate are inclusive.
+     */
     @Query("""
         SELECT packageName,
             SUM(foregroundMillis) AS foregroundMillis, 
@@ -102,6 +110,9 @@ interface AppDao {
     suspend fun activeFocusSession(): FocusSessionEntity?
 
     /**
+     * Get a summary of focus sessions for a given date range.
+     * fromDate and toDate are both inclusive.  
+     * 
      * Complex code isn't something to be proud of, but I'm proud of this SQL.
      * Hopefully it's not completely incomprehensible.
      */
