@@ -18,13 +18,13 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.focus.usage.UsageViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DebugSettingsScreen(
     navController: NavHostController,
     viewModel: UsageViewModel
 ) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        @OptIn(ExperimentalMaterial3Api::class)
         TopAppBar(
             title = { Text("Debug") },
             windowInsets = WindowInsets(0.dp),

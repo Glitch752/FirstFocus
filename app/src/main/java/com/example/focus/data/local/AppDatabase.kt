@@ -6,6 +6,9 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
+/** The migration version of the database, incremented whenever the schema changes */
+const val DB_VERSION: Int = 5
+
 @Database(
     entities = [
         SelectedAppEntity::class,
@@ -15,7 +18,7 @@ import androidx.room.RoomDatabase
         TemporaryAllowanceEntity::class,
         FocusReminderEntity::class
     ],
-    version = 5,
+    version = DB_VERSION,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -28,6 +31,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao
 
     companion object {
+        val DATABASE_FILE = "focus.db"
+
         /** we use a singleton to keep Room's update tracking consistent */
         @Volatile
         private var instance: AppDatabase? = null
@@ -36,8 +41,13 @@ abstract class AppDatabase : RoomDatabase() {
             instance ?: Room.databaseBuilder(
                 context.applicationContext,
                 AppDatabase::class.java,
-                "focus.db"
+                DATABASE_FILE
             ).build().also { instance = it }
+        }
+
+        fun close() = synchronized(this) {
+            instance?.close()
+            instance = null
         }
     }
 }

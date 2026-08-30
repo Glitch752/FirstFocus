@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 
 val Context.focusDataStore by preferencesDataStore(name = "focus_settings")
@@ -18,3 +19,14 @@ object SettingsKeys {
     /** Whether OEM-specific notification permission prompts have been dismissed */
     val oemNotificationPermissionDismissed = booleanPreferencesKey("oem_notification_permission_dismissed")
 }
+
+/** The set of settings to persist in backups */
+val backupSettingsKeys: Set<Preferences.Key<*>> = setOf(
+    SettingsKeys.usageHistoryLastUpdated,
+    SettingsKeys.preOpenCountdownSeconds,
+    SettingsKeys.dailyDistractingTargetMillis,
+    SettingsKeys.defaultFocusDurationMillis,
+    SettingsKeys.automaticallyEndFocusSessions,
+    SettingsKeys.grayscaleDuringFocus,
+    SettingsKeys.oemNotificationPermissionDismissed
+)

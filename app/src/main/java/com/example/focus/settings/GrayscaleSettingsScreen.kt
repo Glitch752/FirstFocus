@@ -300,7 +300,7 @@ fun GrayscaleSettingsScreen(
     var hasShizukuApp by remember { mutableStateOf(viewModel.hasShizukuAppInstalled()) }
     var shizukuRunning by remember { mutableStateOf(viewModel.isShizukuRunning()) }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         @OptIn(ExperimentalMaterial3Api::class)
         TopAppBar(
             title = { Text("Grayscale mode") },

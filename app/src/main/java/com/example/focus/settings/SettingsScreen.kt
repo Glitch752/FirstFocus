@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -109,6 +110,23 @@ fun SettingsScreen(
             ) {
                 Text("Grayscale focus options", Modifier.padding(vertical = 8.dp))
                 Icon(Icons.Default.ChevronRight, "Navigate to grayscale settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            HorizontalDivider()
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { navController.navigate("settings/backup") },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Import / export data", Modifier.padding(vertical = 8.dp))
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = "Navigate to data import and export",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             if (BuildConfig.DEBUG) {
