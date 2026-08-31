@@ -4,13 +4,9 @@
 First focus is a small work-in-progress minimal, local-only screen time and focus management tool for Android. Made by a real human with care :)
 
 <!-- the mystery of app1.png -->
-<img src="assets/app2.png" alt="App screenshot" width="200" />
-<img src="assets/app3.png" alt="App screenshot 2" width="200" />
-<img src="assets/app4.png" alt="App screenshot 3" width="200" />
-<br />
-<img src="assets/app5.png" alt="App screenshot 4" width="200" />
-<img src="assets/app6.png" alt="App screenshot 5" width="200" />
-<img src="assets/app7.png" alt="App screenshot 6" width="200" />
+<img src="assets/app2.png" alt="App screenshot" width="200" /> <img src="assets/app3.png" alt="App screenshot 2" width="200" /> <img src="assets/app4.png" alt="App screenshot 3" width="200" />
+
+<img src="assets/app5.png" alt="App screenshot 4" width="200" /> <img src="assets/app6.png" alt="App screenshot 5" width="200" /> <img src="assets/app7.png" alt="App screenshot 6" width="200" />
 
 
 Features:
@@ -74,3 +70,7 @@ The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
 - [ ] Some kind of very light gamification of time tracking, like a bonsai tree or something
 - [ ] Maybe, just maybe, collaborative tracking for families/friends/whoever to compete
+
+
+## contributing
+Feel free to contribute, especially based on the above roadmap!
