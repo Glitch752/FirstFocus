@@ -15,7 +15,7 @@ data class UsageSummary(
 class UsageStatsRepository(private val context: Context) {
     companion object {
         /** The number of days for which we'll regenerate historical data */
-        const val HISTORY_DAYS = 30
+        const val HISTORY_DAYS = 7
     }
 
     fun hasUsageAccess(): Boolean {

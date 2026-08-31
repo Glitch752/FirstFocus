@@ -55,6 +55,13 @@ class BackupRepository(private val context: Context) {
         }
     }
 
+    /** Clear all application data */
+    suspend fun clearAll() = withContext(Dispatchers.IO) {
+        AppDatabase.close()
+        context.deleteDatabase(AppDatabase.DATABASE_FILE)
+        context.focusDataStore.edit { it.clear() }
+    }
+    
     /** Import the database and settings from the given file. The current database and settings will be replaced. */
     suspend fun import(source: File) = withContext(Dispatchers.IO) {
         // We create a database that we try to load as the main app database, which will automatically handle

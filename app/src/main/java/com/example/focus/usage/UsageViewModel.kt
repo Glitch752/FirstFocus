@@ -1,6 +1,7 @@
 package com.example.focus.usage
 
 import android.app.Application
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.focus.data.local.AppDatabase
@@ -39,15 +40,26 @@ data class UsageUiState(
 )
 
 class UsageViewModel(application: Application) : AndroidViewModel(application) {
+    private val app = application
     private val repository = UsageStatsRepository(application)
     private val dao = AppDatabase.create(application).appDao()
     /** Internal mutable state since we expose the ui state as an immutable [StateFlow] */
     private val _uiState = MutableStateFlow(UsageUiState())
     val uiState: StateFlow<UsageUiState> = _uiState.asStateFlow()
 
-    init {
-        UsageRefreshScheduler(application).scheduleNext()
+    /** Whether we've already started and initialized our state/listeners */
+    private var started = false
+
+    /**
+     * Starts loading usage data, optionally regenerating the history at first for e.g. when we import data.
+     */
+    fun start(regenerateHistory: Boolean = false) {
+        if (started) return
+        started = true
+        UsageRefreshScheduler(app).scheduleNext()
         viewModelScope.launch {
+            if (regenerateHistory) regenerateHistorySuspend()
+
             dao.observeSelectedApps().collectLatest { apps ->
                 _uiState.value = _uiState.value.copy(selectedPackages = apps.map { it.packageName }.toSet())
                 refresh()
@@ -65,10 +77,12 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
             val summary = if (repository.hasUsageAccess()) withContext(Dispatchers.IO) {
                 repository.today(_uiState.value.selectedPackages)
             } else UsageSummary()
+
             _uiState.value = _uiState.value.copy(
                 summary = summary,
                 isLoading = false
             )
+
             loadCharts()
         }
     }
@@ -77,17 +91,20 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun loadCharts() {
         val today = LocalDate.now(ZoneId.systemDefault())
         // 1 year to the nearest monday
-        val totalDays = ((today.dayOfYear + 7 - (today.dayOfWeek.value - 1)) % 7 + 365).toLong()
-        val yearAgo = today.minusDays(totalDays)
+        val totalDays = ((today.dayOfYear + 7 - (today.dayOfWeek.value - 1)) % 7 + 365).toLong() + 1
+        val yearAgo = today.minusDays(totalDays - 1)
         val weekAgo = today.minusDays(7)
-        val daily = dao.usageTotals(yearAgo.toString(), today.toString())
+
+        val usageByDate = dao.usageTotals(yearAgo.toString(), today.toString()).associateBy { it.date }
+        val dailyTotals = (0 until totalDays).map { offset ->
+            val date = yearAgo.plusDays(offset).toString()
+            usageByDate[date] ?: DailyUsageTotals(date, 0L, 0L)
+        }
+
         _uiState.value = _uiState.value.copy(
             // pad to the total length even if we don't have data from all days
-            dailyTotals = (daily.size until totalDays).reversed().map { DailyUsageTotals(
-                today.minusDays(it).toString(),
-                0, 0
-            ) } + daily,
-            dailyFocusSessions = dao.focusSummaries(yearAgo.plusDays(1).toString(), today.toString()),
+            dailyTotals = dailyTotals,
+            dailyFocusSessions = dao.focusSummaries(yearAgo.toString(), today.toString()),
             todayApps = dao.topApps(today.toString(), today.toString(), 1000L * 60L * 5L),
             weekApps = dao.topApps(weekAgo.toString(), today.toString(), 1000L * 60L * 5L)
         )
@@ -106,20 +123,32 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
         if (days.isNotEmpty()) updateDays(days)
     }
 
-    fun regenerateHistory() {
+    private suspend fun regenerateHistorySuspend() {
+        val today = LocalDate.now(ZoneId.systemDefault())
+        withContext(Dispatchers.IO) {
+            updateDays((0 until UsageStatsRepository.HISTORY_DAYS).map { today.minusDays(it.toLong()) })
+        }
+    }
+
+    fun regenerateHistoryManually() {
         viewModelScope.launch(Dispatchers.IO) {
             val today = LocalDate.now(ZoneId.systemDefault())
             updateDays((0 until UsageStatsRepository.HISTORY_DAYS).map { today.minusDays(it.toLong()) })
+
+            viewModelScope.launch(Dispatchers.Main) {
+                Toast.makeText(getApplication(), "Regenerated history for the past ${UsageStatsRepository.HISTORY_DAYS} days", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
     private suspend fun updateDays(days: List<LocalDate>) {
         days.forEachIndexed { index, date ->
-            dao.clearDailyUsage(date.toString())
             val entries = repository.usageForDate(date)
-            entries.takeIf { it.isNotEmpty() }?.let {
-                dao.insertDailyUsage(entries)
-            }
+            // we use only 7 days so we can trust that the data is complete, but this may need to become more
+            // complicated in the future if we change that, more than just
+            // entries.takeIf { it.isNotEmpty() }?.let { }
+            dao.clearDailyUsage(date.toString())
+            dao.insertDailyUsage(entries)
 
             // update the day's status to indicate if we have full or partial data for it
             // if it's today, we only have partial data, but for any other day we should have full data
@@ -129,5 +158,7 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
                 System.currentTimeMillis()
             ))
         }
+
+        loadCharts()
     }
 }

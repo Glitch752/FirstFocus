@@ -34,7 +34,7 @@ fun DebugSettingsScreen(
                 }
             }
         )
-        Button(onClick = viewModel::regenerateHistory) {
+        Button(onClick = viewModel::regenerateHistoryManually) {
             Text("Regenerate usage stats")
         }
     }
