@@ -1,8 +1,8 @@
-package com.example.focus.usage
+package app.enlily.focus.usage
 
 import android.app.usage.UsageStatsManager
 import android.content.Context
-import com.example.focus.data.local.DailyUsageEntity
+import app.enlily.focus.data.local.DailyUsageEntity
 import java.time.LocalDate
 import java.time.ZoneId
 

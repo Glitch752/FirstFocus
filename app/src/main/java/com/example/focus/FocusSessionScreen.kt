@@ -1,4 +1,4 @@
-package com.example.focus
+package app.enlily.focus
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -25,9 +25,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.focus.focus.FocusSessionViewModel
-import com.example.focus.ui.components.FocusCountdown
-import com.example.focus.ui.components.TimeLineSlider
+import app.enlily.focus.focus.FocusSessionViewModel
+import app.enlily.focus.ui.components.FocusCountdown
+import app.enlily.focus.ui.components.TimeLineSlider
 
 private fun formatMinuteDuration(minutes: Long, alwaysIncludeMinutes: Boolean = true): String {
     val hours = minutes / 60

@@ -1,4 +1,4 @@
-package com.example.focus.settings
+package app.enlily.focus.settings
 
 import android.content.Context
 import android.widget.Toast
@@ -59,8 +59,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.example.focus.R
-import com.example.focus.ui.modifiers.horizontalOverflow
+import app.enlily.focus.R
+import app.enlily.focus.ui.modifiers.horizontalOverflow
 
 /** For some reason, the default Material monospace font doesn't work for me, so we just ship one */
 private val CodeFontFamily = FontFamily(Font(R.font.jetbrains_mono_regular))

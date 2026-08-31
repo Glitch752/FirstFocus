@@ -11,11 +11,11 @@ room {
 }
 
 android {
-    namespace = "com.example.focus"
+    namespace = "app.enlily.focus"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.focus"
+        applicationId = "app.enlily.focus"
         minSdk = 33
         targetSdk = 36
         versionCode = 1
@@ -86,8 +86,8 @@ tasks.register("installAndRun", Exec::class) {
     dependsOn("installDebug")
     // not my proudest moment but oh well
     if (System.getProperty("os.name").lowercase().contains("windows")) {
-        commandLine("cmd", "/c", "timeout 1 && adb shell am start -n com.example.focus/com.example.focus.MainActivity")
+        commandLine("cmd", "/c", "timeout 1 && adb shell am start -n app.enlily.focus/app.enlily.focus.MainActivity")
     } else {
-        commandLine("bash", "-c", "sleep 0.5 && adb shell am start -n com.example.focus/com.example.focus.MainActivity")
+        commandLine("bash", "-c", "sleep 0.5 && adb shell am start -n app.enlily.focus/app.enlily.focus.MainActivity")
     }
 }

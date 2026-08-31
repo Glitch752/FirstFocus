@@ -1,4 +1,4 @@
-package com.example.focus.permissions
+package app.enlily.focus.permissions
 
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AppOpsManager
@@ -18,10 +18,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.preferences.core.edit
-import com.example.focus.BuildConfig
-import com.example.focus.accessibility.FocusAccessibilityService
-import com.example.focus.data.settings.SettingsKeys
-import com.example.focus.data.settings.focusDataStore
+import app.enlily.focus.BuildConfig
+import app.enlily.focus.accessibility.FocusAccessibilityService
+import app.enlily.focus.data.settings.SettingsKeys
+import app.enlily.focus.data.settings.focusDataStore
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch

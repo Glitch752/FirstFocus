@@ -23,4 +23,4 @@ install:
 
 installRelease: release
     adb install -r app/build/outputs/apk/release/app-release.apk
-    adb shell am start -n "com.example.focus/com.example.focus.MainActivity"
+    adb shell am start -n "app.enlily.focus/app.enlily.focus.MainActivity"
