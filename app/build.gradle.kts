@@ -86,7 +86,8 @@ tasks.register("installAndRun", Exec::class) {
     dependsOn("installDebug")
     // not my proudest moment but oh well
     if (System.getProperty("os.name").lowercase().contains("windows")) {
-        commandLine("cmd", "/c", "timeout 1 && adb shell am start -n app.enlily.focus/app.enlily.focus.MainActivity")
+        // i guess this is how you need to wait??
+        commandLine("cmd", "/c", "ping -n 2 127.0.0.1 > nul && adb shell am start -n app.enlily.focus/app.enlily.focus.MainActivity")
     } else {
         commandLine("bash", "-c", "sleep 0.5 && adb shell am start -n app.enlily.focus/app.enlily.focus.MainActivity")
     }
