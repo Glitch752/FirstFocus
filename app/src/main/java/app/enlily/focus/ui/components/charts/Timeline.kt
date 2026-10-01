@@ -63,6 +63,7 @@ private fun drawDashedLine(
  * @param formatValue A function to format the value for display
  */
 @Composable
+@Suppress("FunctionName")
 fun Timeline(
     title: String,
     values: List<Long>,

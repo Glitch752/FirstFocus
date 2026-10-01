@@ -38,6 +38,7 @@ import kotlin.math.ceil
  * A vertical bar chart displaying daily usage values.
  */
 @Composable
+@Suppress("FunctionName")
 fun DailyChart(usageDays: List<DailyUsageTotals>, focusDays: List<FocusSessionSummary>) {
     val combined = usageDays.map { day ->
         val focusDay = focusDays.find { it.date == day.date }

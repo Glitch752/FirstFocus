@@ -61,6 +61,7 @@ private val destinations = listOf(
  *      This is used to handle notifications without recreating the full app
  */
 @Composable
+@Suppress("FunctionName")
 fun FocusApp(
     modifier: Modifier = Modifier,
     openFocusOnStart: Boolean = false,
@@ -166,6 +167,7 @@ fun FocusApp(
 }
 
 @Composable
+@Suppress("FunctionName")
 private fun PlaceholderScreen(title: String) {
     Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         androidx.compose.material3.Text(title)

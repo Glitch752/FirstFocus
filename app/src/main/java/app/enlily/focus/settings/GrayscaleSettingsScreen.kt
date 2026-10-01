@@ -290,6 +290,7 @@ private fun InfoAndPermissionCard(
 }
 
 @Composable
+@Suppress("FunctionName")
 fun GrayscaleSettingsScreen(
     navController: NavHostController,
     viewModel: SettingsViewModel = viewModel()

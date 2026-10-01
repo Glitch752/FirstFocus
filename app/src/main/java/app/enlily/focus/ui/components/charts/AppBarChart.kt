@@ -28,6 +28,7 @@ import app.enlily.focus.data.local.AppUsageTotal
  * A horizontal bar chart showing the values of app labels, with the color intensity mapped to the value.
  */
 @Composable
+@Suppress("FunctionName")
 fun AppBarChart(title: String, values: List<AppUsageTotal>) {
     val max = values.maxOfOrNull { it.foregroundMillis }?.coerceAtLeast(1L) ?: 1L
 

@@ -35,6 +35,7 @@ import androidx.navigation.NavHostController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("FunctionName")
 fun AppSelectionScreen(navController: NavHostController, viewModel: AppSelectionViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     // Filter apps based on search query

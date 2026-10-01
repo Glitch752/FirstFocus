@@ -47,6 +47,7 @@ private fun formatMinuteDuration(minutes: Long, alwaysIncludeMinutes: Boolean = 
 // TODO: styled poorly in landscape mode
 
 @Composable
+@Suppress("FunctionName")
 fun FocusSessionScreen(viewModel: FocusSessionViewModel = viewModel()) {
     val active by viewModel.active.collectAsStateWithLifecycle()
     var targetMinutes by remember { mutableLongStateOf(25) }

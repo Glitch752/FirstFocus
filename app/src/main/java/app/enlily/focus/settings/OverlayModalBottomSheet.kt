@@ -53,6 +53,7 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("FunctionName")
 fun OverlayModalBottomSheet(
     onDismissRequest: () -> Unit,
     sheetState: SheetState,

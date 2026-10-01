@@ -29,6 +29,7 @@ import app.enlily.focus.BuildConfig
 import app.enlily.focus.permissions.RequiredPermissionBanners
 
 @Composable
+@Suppress("FunctionName")
 fun SettingsScreen(
     navController: NavHostController,
     viewModel: SettingsViewModel = viewModel()

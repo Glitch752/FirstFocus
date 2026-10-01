@@ -44,6 +44,7 @@ import androidx.navigation.NavHostController
 import app.enlily.focus.MainActivity
 
 @Composable
+@Suppress("FunctionName")
 fun BackupScreen(navController: NavHostController, viewModel: BackupViewModel = viewModel()) {
     // Launchers for the export and import activities, handling the file selection and creation dialogs and providing
     // us with a URI to read from or write to.

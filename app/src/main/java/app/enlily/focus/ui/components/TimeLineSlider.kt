@@ -47,6 +47,7 @@ import kotlin.math.roundToLong
  * Includes haptic feedback, fling, and snapping.
  */
 @Composable
+@Suppress("FunctionName")
 fun TimeLineSlider(
     value: Long,
     onValueChange: (Long) -> Unit,

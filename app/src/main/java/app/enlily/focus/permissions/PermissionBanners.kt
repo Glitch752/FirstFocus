@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
+@Suppress("FunctionName")
 fun RequiredPermissionBanners(
     modifier: Modifier = Modifier,
     viewModel: PermissionViewModel = viewModel()
@@ -83,6 +84,7 @@ private data class PendingPermissionRequest(
 )
 
 @Composable
+@Suppress("FunctionName")
 private fun PermissionBanner(
     permission: RequiredPermission,
     onGrant: () -> Unit

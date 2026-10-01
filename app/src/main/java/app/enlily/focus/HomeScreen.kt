@@ -29,6 +29,7 @@ import java.time.LocalDate
 val PAGE_PADDING = 18.dp
 
 @Composable
+@Suppress("FunctionName")
 fun HomeScreen(
     viewModel: UsageViewModel = viewModel(),
     permissionViewModel: PermissionViewModel = viewModel()
@@ -104,6 +105,7 @@ private fun formatDuration(millis: Long): String {
 }
 
 @Composable
+@Suppress("FunctionName")
 private fun SummaryRow(title: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(title)

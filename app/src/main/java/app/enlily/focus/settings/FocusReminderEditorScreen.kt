@@ -53,6 +53,7 @@ fun formatTime(hour: Int, minute: Int): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("FunctionName")
 fun FocusReminderEditorScreen(
     navController: NavHostController,
     existing: FocusReminderEntity? = null,

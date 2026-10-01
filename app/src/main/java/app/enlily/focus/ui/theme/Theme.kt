@@ -19,6 +19,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
+@Suppress("FunctionName")
 fun FocusTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit

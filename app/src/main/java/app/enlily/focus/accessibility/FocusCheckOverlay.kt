@@ -61,6 +61,7 @@ private fun ease(value: Float): Float {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("FunctionName")
 fun FocusCheckOverlay(
     appLabel: String,
     usageMillis: Long,
@@ -175,6 +176,7 @@ fun FocusCheckOverlay(
 }
 
 @Composable
+@Suppress("FunctionName")
 fun FocusBlockingOverlay(
     appLabel: String,
     startedAtMillis: Long,

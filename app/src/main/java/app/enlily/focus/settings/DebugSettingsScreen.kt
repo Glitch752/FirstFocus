@@ -19,6 +19,7 @@ import androidx.navigation.NavHostController
 import app.enlily.focus.usage.UsageViewModel
 
 @Composable
+@Suppress("FunctionName")
 fun DebugSettingsScreen(
     navController: NavHostController,
     viewModel: UsageViewModel

@@ -44,6 +44,7 @@ import app.enlily.focus.data.local.FocusReminderEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("FunctionName")
 fun FocusRemindersScreen(navController: NavHostController, viewModel: FocusRemindersViewModel = viewModel()) {
     val reminders by viewModel.reminders.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
