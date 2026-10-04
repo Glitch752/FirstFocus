@@ -11,6 +11,7 @@ import app.enlily.focus.data.local.DailyUsageStatusEntity
 import app.enlily.focus.data.local.DailyUsageTotals
 import app.enlily.focus.data.local.FocusSessionSummary
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +40,13 @@ data class UsageUiState(
     val weekApps: List<AppUsageTotal> = emptyList()
 )
 
+private data class ChartData(
+    val dailyTotals: List<DailyUsageTotals>,
+    val dailyFocusSessions: List<FocusSessionSummary>,
+    val todayApps: List<AppUsageTotal>,
+    val weekApps: List<AppUsageTotal>
+)
+
 class UsageViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application
     private val repository = UsageStatsRepository(application)
@@ -49,6 +57,7 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Whether we've already started and initialized our state/listeners */
     private var started = false
+    private var refreshJob: Job? = null
 
     /**
      * Starts loading usage data, optionally regenerating the history at first for e.g. when we import data.
@@ -68,27 +77,31 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(isLoading = true)
 
             // Wait for today's usage to be persisted before querying the charts to prevent race conditions
             refreshHistoryIfNeeded()
 
-            val summary = if (repository.hasUsageAccess()) withContext(Dispatchers.IO) {
+            val summary = if (repository.hasUsageAccess()) {
                 repository.today(_uiState.value.selectedPackages)
             } else UsageSummary()
+            val charts = loadCharts()
 
             _uiState.value = _uiState.value.copy(
                 summary = summary,
-                isLoading = false
+                isLoading = false,
+                dailyTotals = charts.dailyTotals,
+                dailyFocusSessions = charts.dailyFocusSessions,
+                todayApps = charts.todayApps,
+                weekApps = charts.weekApps
             )
-
-            loadCharts()
         }
     }
 
     /** Load data for the charts on the home screen */
-    private suspend fun loadCharts() {
+    private suspend fun loadCharts(): ChartData {
         val today = LocalDate.now(ZoneId.systemDefault())
         // 1 year to the nearest monday
         val totalDays = ((today.dayOfYear + 7 - (today.dayOfWeek.value - 1)) % 7 + 365).toLong() + 1
@@ -101,7 +114,7 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
             usageByDate[date] ?: DailyUsageTotals(date, 0L, 0L)
         }
 
-        _uiState.value = _uiState.value.copy(
+        return ChartData(
             // pad to the total length even if we don't have data from all days
             dailyTotals = dailyTotals,
             dailyFocusSessions = dao.focusSummaries(yearAgo.toString(), today.toString()),
@@ -134,6 +147,7 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val today = LocalDate.now(ZoneId.systemDefault())
             updateDays((0 until UsageStatsRepository.HISTORY_DAYS).map { today.minusDays(it.toLong()) })
+            refresh()
 
             viewModelScope.launch(Dispatchers.Main) {
                 Toast.makeText(getApplication(), "Regenerated history for the past ${UsageStatsRepository.HISTORY_DAYS} days", Toast.LENGTH_LONG).show()
@@ -158,7 +172,5 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
                 System.currentTimeMillis()
             ))
         }
-
-        loadCharts()
     }
 }
