@@ -4,13 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -37,6 +38,11 @@ val PAGE_PADDING = 18.dp
 
 // TODO: pull to refresh
 
+// todo: some sort of "shame statistic", like:
+// - "you spent 2 hours more than your average on distracting apps today"
+// - "you spent 30% of your day on Youtube today"
+// stuff like that
+
 @Composable
 @Suppress("FunctionName")
 fun HomeScreen(
@@ -45,74 +51,94 @@ fun HomeScreen(
 ) {
     val usageState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissionState by permissionViewModel.uiState.collectAsStateWithLifecycle()
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(PAGE_PADDING),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+    
+    // cache everything. not sure if all of these are required (since a lot of this data will change frequently), but it doens't hurt
+    val usageStartDay = remember(usageState.dailyTotals) { usageState.dailyTotals.firstOrNull()?.date?.let(LocalDate::parse) ?: LocalDate.now() }
+    val usageValues = remember(usageState.dailyTotals) { usageState.dailyTotals.map { it.totalForegroundMillis } }
+    val distractingValues = remember(usageState.dailyTotals) { usageState.dailyTotals.map { it.distractingForegroundMillis } }    
+    val focusStartDay = remember(usageState.dailyFocusSessions, usageStartDay) { usageState.dailyFocusSessions.firstOrNull()?.date?.let(LocalDate::parse) ?: usageStartDay }
+    val focusValues = remember(usageState.dailyFocusSessions) { usageState.dailyFocusSessions.map { it.finishedMillis } }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(horizontal = PAGE_PADDING),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(vertical = PAGE_PADDING)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Focus", style = MaterialTheme.typography.headlineLarge)
-            Spacer(Modifier.width(4.dp))
-            IconButton(onClick = {
-                viewModel.refresh()
-                permissionViewModel.refresh()
-            }) {
-                Icon(Icons.Default.Refresh, "Refresh")
+        item(key = "header") {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Focus", style = MaterialTheme.typography.headlineLarge)
+                Spacer(Modifier.width(4.dp))
+                IconButton(onClick = {
+                    viewModel.refresh()
+                    permissionViewModel.refresh()
+                }) {
+                    Icon(Icons.Default.Refresh, "Refresh")
+                }
             }
         }
 
         if (!permissionState.isChecking && !permissionState.allGranted) {
-            RequiredPermissionBanners(viewModel = permissionViewModel)
+            item(key = "permissions") {
+                RequiredPermissionBanners(viewModel = permissionViewModel)
+            }
         } else if (usageState.isLoading) {
-            Box(Modifier.fillMaxWidth()) { CircularProgressIndicator() }
+            item(key = "loading") {
+                Box(Modifier.fillMaxWidth()) { CircularProgressIndicator() }
+            }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            SummaryRow("Phone usage today", formatDuration(usageState.summary.totalMillis))
-            SummaryRow("Distracting apps", formatDuration(usageState.summary.distractingMillis))
-            SummaryRow("Focus time today", formatDuration(usageState.dailyFocusSessions.lastOrNull()?.finishedMillis ?: 0L))
+        item(key = "summary") {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                SummaryRow("Phone usage today", formatDuration(usageState.summary.totalMillis))
+                SummaryRow("Distracting apps", formatDuration(usageState.summary.distractingMillis))
+                SummaryRow("Focus time today", formatDuration(usageState.dailyFocusSessions.lastOrNull()?.finishedMillis ?: 0L))
+            }
         }
-
-        // todo: some sort of "shame statistic", like:
-        // - "you spent 2 hours more than your average on distracting apps today"
-        // - "you spent 30% of your day on Youtube today"
-        // stuff like that
 
         if (usageState.dailyTotals.isEmpty()) {
-            Text("Loading usage data...", style = MaterialTheme.typography.bodyMedium)
-            CircularProgressIndicator(Modifier.padding(8.dp))
+            item(key = "empty-state") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Loading usage data...", style = MaterialTheme.typography.bodyMedium)
+                    CircularProgressIndicator(Modifier.padding(8.dp))
+                }
+            }
         } else {
-            // TODO: more data analysis on click of many of these charts
-
-            val usageStartDay = LocalDate.parse(usageState.dailyTotals[0].date)
-            Timeline(
-                "Total phone usage",
-                usageState.dailyTotals.map { it.totalForegroundMillis },
-                MaterialTheme.colorScheme.primary,
-                usageStartDay,
-                formatValue = { formatDuration(it) }
-            )
-            Timeline(
-                "Distracting app usage",
-                usageState.dailyTotals.map { it.distractingForegroundMillis },
-                MaterialTheme.colorScheme.secondary,
-                usageStartDay,
-                formatValue = { formatDuration(it) }
-            )
-            val focusStartDay = LocalDate.parse(usageState.dailyFocusSessions[0].date)
-            Timeline(
-                "Focus session time",
-                usageState.dailyFocusSessions.map { it.finishedMillis },
-                MaterialTheme.colorScheme.inverseSurface,
-                focusStartDay,
-                formatValue = { formatDuration(it) }
-            )
-
-            DailyChart(usageState.dailyTotals, usageState.dailyFocusSessions)
-
-            // TODO: hourly usage charts?
-
-            AppBarChart("Apps used today", usageState.todayApps)
-            AppBarChart("Apps used this week", usageState.weekApps)
+            item(key = "total-usage-timeline") {
+                Timeline(
+                    "Total phone usage",
+                    usageValues,
+                    MaterialTheme.colorScheme.primary,
+                    usageStartDay,
+                    formatValue = { formatDuration(it) }
+                )
+            }
+            item(key = "distracting-usage-timeline") {
+                Timeline(
+                    "Distracting app usage",
+                    distractingValues,
+                    MaterialTheme.colorScheme.secondary,
+                    usageStartDay,
+                    formatValue = { formatDuration(it) }
+                )
+            }
+            item(key = "focus-session-timeline") {
+                Timeline(
+                    "Focus session time",
+                    focusValues,
+                    MaterialTheme.colorScheme.inverseSurface,
+                    focusStartDay,
+                    formatValue = { formatDuration(it) }
+                )
+            }
+            item(key = "daily-chart") {
+                DailyChart(usageState.dailyTotals, usageState.dailyFocusSessions)
+            }
+            item(key = "apps-today") {
+                AppBarChart("Apps used today", usageState.todayApps)
+            }
+            item(key = "apps-this-week") {
+                AppBarChart("Apps used this week", usageState.weekApps)
+            }
         }
     }
 }
