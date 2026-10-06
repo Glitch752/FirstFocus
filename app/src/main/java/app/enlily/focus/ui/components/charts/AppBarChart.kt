@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,6 +25,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.enlily.focus.data.local.AppUsageTotal
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private data class AppDetails(val label: String, val icon: android.graphics.drawable.Drawable?)
 
 /**
  * A horizontal bar chart showing the values of app labels, with the color intensity mapped to the value.
@@ -35,23 +41,34 @@ fun AppBarChart(title: String, values: List<AppUsageTotal>) {
     val rowHeight = 18.dp
     val rowSpacing = 4.dp
 
-    val unknownAppIcon = LocalContext.current.packageManager.defaultActivityIcon
+    val context = LocalContext.current
+
+    // produceState runs at the start and re-runs whenever key1 changes
+    val appDetails by produceState<Map<String, AppDetails>>(emptyMap(), values) {
+        value = withContext(Dispatchers.IO) {
+            values.associate { usage ->
+                val details = try {
+                    val appInfo = context.packageManager.getApplicationInfo(usage.packageName, 0)
+                    AppDetails(
+                        label = context.packageManager.getApplicationLabel(appInfo).toString(),
+                        icon = appInfo.loadIcon(context.packageManager)
+                    )
+                } catch (_: Exception) {
+                    AppDetails(label = usage.packageName.substringAfterLast('.'), icon = null)
+                }
+                usage.packageName to details
+            }
+        }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // TODO: refresh button ?
-        // not really required since we frequently reload the data but it would feel nice
         Text(title, style = MaterialTheme.typography.titleLarge)
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             // labels
             Column(Modifier.width(120.dp), verticalArrangement = Arrangement.spacedBy(rowSpacing)) {
                 values.forEach { v ->
-                    val context = LocalContext.current
-                    val applicationInfo = try {
-                        context.packageManager.getApplicationInfo(v.packageName, 0)
-                    } catch (e: Exception) {
-                        null
-                    }
+                    val details = appDetails[v.packageName]
                     Row(
                         Modifier.height(rowHeight),
                         verticalAlignment = Alignment.CenterVertically,
@@ -60,13 +77,12 @@ fun AppBarChart(title: String, values: List<AppUsageTotal>) {
                         AndroidView(
                             factory = { ImageView(it) },
                             modifier = Modifier.size(rowHeight),
-                            update = { it.setImageDrawable(
-                                applicationInfo?.loadIcon(context.packageManager) ?: unknownAppIcon
-                            ) }
+                            update = { imageView ->
+                                imageView.setImageDrawable(details?.icon)
+                            }
                         )
                         Text(
-                            applicationInfo ?.let { context.packageManager.getApplicationLabel(it).toString() }
-                                ?: v.packageName.substringAfterLast('.'),
+                            details?.label ?: v.packageName.substringAfterLast('.'),
                             style = MaterialTheme.typography.labelMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
