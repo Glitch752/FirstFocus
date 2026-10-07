@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -30,6 +31,7 @@ import app.enlily.focus.PAGE_PADDING
 import app.enlily.focus.ui.components.charts.ChartUtils.Companion.endScrollState
 import app.enlily.focus.ui.modifiers.horizontalOverflow
 import java.time.LocalDate
+import java.time.YearMonth
 
 private fun drawDashedLine(
     drawScope: androidx.compose.ui.graphics.drawscope.DrawScope,
@@ -71,8 +73,19 @@ fun Timeline(
     startDate: LocalDate,
     formatValue: (Long) -> String = { it.toString() }
 ) {
-    val max = values.maxOrNull()?.coerceAtLeast(1L) ?: 1L
+    val max = remember(values) { values.maxOrNull()?.coerceAtLeast(1L) ?: 1L }
     val startDayOfWeek = startDate.dayOfWeek.value
+    val monthMarkers = remember(startDate, values.size) {
+        (0 until values.size)
+            .map { index ->
+                val date = startDate.plusDays(index.toLong())
+                YearMonth.from(date) to index
+            }
+            .groupBy({ it.first }, { it.second })
+            .mapNotNull { (month, indices) ->
+                indices.first().takeIf { it > 0 }?.let { month to it }
+            }
+    }
 
     val density = LocalDensity.current
     val boxSize = 18.dp
@@ -120,20 +133,13 @@ fun Timeline(
                     // month labels and lines
                     // we place a label after the column of the last day of the previous month, then draw a dashed
                     // separator line (that may need to cross over to the left)
-                    val months = values.indices
-                        .map { startDate.plusDays(it.toLong()) }
-                        .map { it.month to it.year }
-                        .distinct()
-                    months.forEachIndexed { index, (month, year) ->
-                        // find the column of the last day of the previous month
-                        val lastDayOfPrevMonth = startDate.plusMonths(index.toLong()).minusDays(
-                            startDate.plusMonths(index.toLong()).dayOfMonth.toLong()
-                        )
-                        val lastDayIndex = values.indices.firstOrNull { startDate.plusDays(it.toLong()) == lastDayOfPrevMonth } ?: return@forEachIndexed
+                    monthMarkers.forEach { (month, firstDayIndex) ->
+                        // Find the column immediately before the first day of this month.
+                        val lastDayIndex = firstDayIndex - 1
                         val week = Math.ceilDiv(lastDayIndex + startDayOfWeek - 1, 7)
 
                         val x = week * (boxSizePx + boxSpacingPx) - boxSpacingPx / 2f
-                        val monthLabel = month.name.substring(0, 3).lowercase().replaceFirstChar(Char::uppercase)
+                        val monthLabel = month.month.name.substring(0, 3).lowercase().replaceFirstChar(Char::uppercase)
 
                         // draw a label at the top
                         val textLayoutResult = textMeasurer.measure(monthLabel, style = monthTextStyle)
@@ -141,10 +147,11 @@ fun Timeline(
                         drawText(textLayoutResult, topLeft = Offset(textX, 0f), color = monthTextColor)
 
                         // draw a dashed line separating the two months
-                        // if the last day index isn't the last day of the week, the line needs to be split into three segments
-                        if (lastDayIndex % 7 != 6) {
+                        // Split the separator across weeks if the prior month ended mid-week.
+                        val lastDayOfWeek = (lastDayIndex + startDayOfWeek - 1) % 7
+                        if (lastDayOfWeek != 6) {
                             val prevWeekX = (week - 1) * (boxSizePx + boxSpacingPx) - boxSpacingPx / 2f
-                            val dayStartY = (lastDayIndex % 7 + 1) * (boxSizePx + boxSpacingPx) - boxSpacingPx / 2f + topTextPaddingPx
+                            val dayStartY = (lastDayOfWeek + 1) * (boxSizePx + boxSpacingPx) - boxSpacingPx / 2f + topTextPaddingPx
                             drawDashedLine(this, listOf(
                                 Offset(x, topTextPaddingPx),
                                 Offset(x, dayStartY),

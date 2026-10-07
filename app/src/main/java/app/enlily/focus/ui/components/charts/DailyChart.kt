@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,17 +41,20 @@ import kotlin.math.ceil
 @Composable
 @Suppress("FunctionName")
 fun DailyChart(usageDays: List<DailyUsageTotals>, focusDays: List<FocusSessionSummary>) {
-    val combined = usageDays.map { day ->
-        val focusDay = focusDays.find { it.date == day.date }
-        Pair(day, focusDay)
+    val combined = remember(usageDays, focusDays) {
+        val focusByDate = focusDays.associateBy { it.date }
+        usageDays.map { day -> day to focusByDate[day.date] }
     }
+    
     // this isn't technically right, but we add focus sessions on top of normal foreground usage.
     // technically, when using non-distracting apps during focus sessions, it will be double-counted, but
     // it's really difficult and computationally expensive to figure out exactly how much of the foreground
     // usage was during focus sessions.
-    val max = combined.maxOfOrNull {
-        it.first.totalForegroundMillis.toFloat() + (it.second?.finishedMillis?.toFloat() ?: 0f)
-    }?.coerceAtLeast(1f) ?: 1f
+    val max = remember(combined) {
+        combined.maxOfOrNull {
+            it.first.totalForegroundMillis.toFloat() + (it.second?.finishedMillis?.toFloat() ?: 0f)
+        }?.coerceAtLeast(1f) ?: 1f
+    }
     val barHeight = 148.dp
 
     val hourMillis = 60 * 60 * 1000f
@@ -89,7 +93,7 @@ fun DailyChart(usageDays: List<DailyUsageTotals>, focusDays: List<FocusSessionSu
                 state = listState,
                 contentPadding = PaddingValues(horizontal = PAGE_PADDING)
             ) {
-                items(combined.size) { index ->
+                items(combined.size, key = { index -> usageDays[index].date }) { index ->
                     val usageDay = usageDays[index]
                     val total = usageDay.totalForegroundMillis.toFloat()
                     val distracting = usageDay.distractingForegroundMillis.toFloat()
