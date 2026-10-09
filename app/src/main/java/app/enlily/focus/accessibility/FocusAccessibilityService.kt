@@ -40,6 +40,8 @@ class FocusAccessibilityService : AccessibilityService() {
     private val notifications by lazy { FocusSessionNotificationManager(applicationContext) }
     /** A job that waits for the current allowance to expire, if any */
     private var allowanceExpirationJob: Job? = null
+    /** The job either showing or hiding the prompt, so we can cancel it and avoid race conditions */
+    private var showOrHidePromptJob: Job? = null
     /** A separate coroutine scope for the allowance expiration job, so we can cancel it without cancelling the main scope */
     private val policyScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -75,14 +77,19 @@ class FocusAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        if (event == null || (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED)) return
         Log.d("FocusAccessibilityService", "received window state changed event from package ${event.packageName}")
 
-        if(event.packageName == applicationContext.packageName) return
-        // systemui can be focused from notifications and other things, causing unnecessary flickering
-        if(event.packageName == "com.android.systemui") return
+        val eventPackage = event.packageName?.toString()
+        if (eventPackage == applicationContext.packageName) return
 
-        val packageName = event.packageName?.toString() ?: return
+        // window changes can report com.android.systemui, which doesn't really mean anything, so try to resolve the active window in those cases
+        val packageName = if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED ||
+            eventPackage == "com.android.systemui") {
+            rootInActiveWindow?.packageName?.toString() ?: return
+        } else {
+            eventPackage ?: return
+        }
         if (packageName == currentPackage) return
 
         // check if the app is now focused or is doing weird things like showing pop outs
@@ -90,18 +97,19 @@ class FocusAccessibilityService : AccessibilityService() {
         // this is SO hacky, but it fixes issues with e.g. youtube sending another event when closed
         // also, yes, == true because it's optional. yay kotlin.
         if (event.className?.toString()?.startsWith("android.view") == true) return
-
+        
         currentPackage = packageName
         if (packageName in selectedPackages) {
             // not sure if this is best practice since we have nested scope.launch calls, but oh well
-            scope.launch {
+            showOrHidePromptJob = scope.launch {
                 val activeSession = focusSessionRepository.activeSession()
                 if (activeSession != null) {
                     showFocusBlock(packageName, activeSession)
-                }
-                else showPrompt(packageName)
+                } else showPrompt(packageName)
             }
         } else {
+            if (showOrHidePromptJob?.isActive == true) showOrHidePromptJob?.cancel()
+        
             notifications.cancelAllowance()
             allowanceExpirationJob?.cancel()
             overlayController.remove(clearDismissal = true)
