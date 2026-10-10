@@ -1,6 +1,8 @@
 package app.enlily.focus.accessibility
 
+import android.content.ComponentCallbacks
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.view.Choreographer
 import android.view.Gravity
@@ -37,12 +39,12 @@ class BlockingOverlayController(private val context: Context) {
     private var recomposer: Recomposer? = null
     /** The job used by the [recomposer] */
     private var recomposerJob: Job? = null
+    private var windowManager: WindowManager? = null
+    private var componentCallbacks: ComponentCallbacks? = null
 
     /** Show an overlay window with the given content in a compose view */
     private fun showOverlay(content: @Composable () -> Unit) {
         if (overlay != null) return
-
-        val windowManager = context.getSystemService(WindowManager::class.java)
 
         // see DirectFrameClock, but we need to create a custom recomposer since using the default one causes
         // the UI to freeze when the overlay is shown and dismissed multiple times.
@@ -62,22 +64,21 @@ class BlockingOverlayController(private val context: Context) {
             compositionContext = newRecomposer
         }
 
-        // Unfortunately, we need to hack around covering the nav bar in api 30+: https://stackoverflow.com/a/79501942
-        val metrics = windowManager.currentWindowMetrics
-        val insets = metrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars())
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            metrics.bounds.height() - insets.bottom - insets.top,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.OPAQUE
-        ).apply {
-            gravity = Gravity.BOTTOM
-            y = insets.bottom
-        }
-
-        windowManager.addView(composeView, params)
+        val wm = context.getSystemService(WindowManager::class.java)
+        wm.addView(composeView, createOverlayLayoutParams(wm))
+        windowManager = wm
+        
         overlay = composeView
+        componentCallbacks = object : ComponentCallbacks {
+            override fun onConfigurationChanged(newConfig: Configuration) {
+                updateOverlayLayout()
+            }
+            
+            // i guess...
+            @Deprecated("...", replaceWith = ReplaceWith("Unit"))
+            override fun onLowMemory() = Unit
+        }.also(context::registerComponentCallbacks)
+
         overlayLifecycle = lifecycleOwner
         recomposer = newRecomposer
         recomposerJob = job
@@ -112,6 +113,31 @@ class BlockingOverlayController(private val context: Context) {
         }
     }
 
+    /** Unfortunately, we need to hack around covering the nav bar in api 30+: https://stackoverflow.com/a/79501942 */
+    private fun createOverlayLayoutParams(windowManager: WindowManager): WindowManager.LayoutParams {
+        val metrics = windowManager.currentWindowMetrics
+        val insets = metrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars())
+        // this is reeeally hacky but... whatever
+        val isLandscape = metrics.bounds.width() > metrics.bounds.height()
+        val topInset = if (isLandscape) 0 else insets.top
+        return WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            metrics.bounds.height() - insets.bottom - topInset,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.OPAQUE
+        ).apply {
+            gravity = Gravity.BOTTOM
+            y = insets.bottom
+        }
+    }
+
+    private fun updateOverlayLayout() {
+        val view = overlay ?: return
+        val wm = windowManager ?: return
+        wm.updateViewLayout(view, createOverlayLayoutParams(wm))
+    }
+
     /** Clear the dismissed package, allowing the overlay to be shown again for the same app */
     fun clearDismissal() {
         dismissedPackage = null
@@ -119,8 +145,12 @@ class BlockingOverlayController(private val context: Context) {
 
     /** Remove the overlay, if currently shown */
     fun remove(clearDismissal: Boolean = false) {
-        overlay?.let { context.getSystemService(WindowManager::class.java).removeView(it) }
+        overlay?.let { windowManager?.removeView(it) }
         overlay = null
+        
+        componentCallbacks?.let(context::unregisterComponentCallbacks)
+        componentCallbacks = null
+        windowManager = null
 
         // Discard and cancel the recomposer
         recomposer?.cancel()
