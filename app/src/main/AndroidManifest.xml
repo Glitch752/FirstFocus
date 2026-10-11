@@ -76,6 +76,9 @@
             android:name=".focus.FocusReminderReceiver"
             android:exported="false" />
         <receiver
+            android:name=".focus.CancelAllowanceReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".usage.UsageRefreshReceiver"
             android:exported="false" />
     </application>

@@ -64,9 +64,19 @@ class FocusSessionNotificationManager(private val context: Context) {
             .addExtras(Bundle().apply { putBoolean("android.requestPromotedOngoing", true) })
 
     private fun activeSessionNotification(remaining: Long) = liveUpdateCountdownNotification(remaining, "Focus session active").build()
-    private fun allowanceNotification(remaining: Long, packageLabel: String) =
+    private fun allowanceNotification(remaining: Long, packageLabel: String, packageName: String) =
         liveUpdateCountdownNotification(remaining, "Focus allowance")
-        .setContentText("$packageLabel allowed · ${formatRemaining(remaining)} remaining").build()
+            .setContentText("$packageLabel allowed · ${formatRemaining(remaining)} remaining")
+            // icon=0 sets no icon, not sure why it's barely documented
+            .addAction(0, "Cancel allowance", PendingIntent.getBroadcast(
+                context,
+                ALLOWANCE_ID,
+                Intent(context, CancelAllowanceReceiver::class.java)
+                    .setAction(ACTION_CANCEL_ALLOWANCE)
+                    .putExtra(EXTRA_ALLOWANCE_PACKAGE, packageName),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            ))
+            .build()
 
     /**  Show the notification for the active focus session, with a countdown timer */
     fun showActiveSession(session: FocusSessionEntity) {
@@ -80,11 +90,13 @@ class FocusSessionNotificationManager(private val context: Context) {
         manager.cancel(ACTIVE_SESSION_ID)
     }
 
-    /** Show the notification for a temporary allowance for a distracting app */
-    fun showAllowance(packageLabel: String, expiresAtMillis: Long) {
-        showCountdown(ALLOWANCE_ID, expiresAtMillis) { remaining -> allowanceNotification(remaining, packageLabel) }
+    /** Show the notification for a temporary allowance */
+    fun showAllowance(packageName: String, packageLabel: String, expiresAtMillis: Long) {
+        showCountdown(ALLOWANCE_ID, expiresAtMillis) { remaining ->
+            allowanceNotification(remaining, packageLabel, packageName)
+        }
     }
-    /** Cancel the notification for a temporary allowance for a distracting app */
+    /** Cancel the notification for a temporary allowance */
     fun cancelAllowance() {
         cancelCountdown(ALLOWANCE_ID)
         manager.cancel(ALLOWANCE_ID)
@@ -139,6 +151,13 @@ class FocusSessionNotificationManager(private val context: Context) {
         private const val ACTIVE_SESSION_ID = 1001
         /** Notification id for the temporary allowance notification */
         private const val ALLOWANCE_ID = 1002
+        
+        /** Intent action for broadcast to cancel a temporary allowance */
+        const val ACTION_CANCEL_ALLOWANCE = "app.enlily.focus.action.CANCEL_ALLOWANCE"
+        /** Intent actioion for broadcast after a temporary allowance was cancelled */
+        const val ACTION_ALLOWANCE_CANCELLED = "app.enlily.focus.action.ALLOWANCE_CANCELLED"
+        /** Intent extra key for the package name of the allowance that was cancelled */
+        const val EXTRA_ALLOWANCE_PACKAGE = "allowance_package"
         /** Notification id for focus reminder notifications */
         private const val REMINDER_ID = 1003
 

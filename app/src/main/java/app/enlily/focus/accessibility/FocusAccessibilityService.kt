@@ -2,6 +2,10 @@ package app.enlily.focus.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import app.enlily.focus.data.local.AppDatabase
@@ -44,8 +48,27 @@ class FocusAccessibilityService : AccessibilityService() {
     private var showOrHidePromptJob: Job? = null
     /** A separate coroutine scope for the allowance expiration job, so we can cancel it without cancelling the main scope */
     private val policyScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    
+    /** A broadcast receiver that listens for when an allowance is cancelled, so we can show the prompt again if still in the distracting app */
+    private val allowanceCancelledReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val packageName = intent.getStringExtra(FocusSessionNotificationManager.EXTRA_ALLOWANCE_PACKAGE)
+                ?: return
+            allowanceExpirationJob?.cancel()
+            notifications.cancelAllowance()
+            if (currentPackage == packageName && packageName in selectedPackages) {
+                showPrompt(packageName, ignoreAllowance = true)
+            }
+        }
+    }
 
     override fun onServiceConnected() {
+        registerReceiver(
+            allowanceCancelledReceiver,
+            IntentFilter(FocusSessionNotificationManager.ACTION_ALLOWANCE_CANCELLED),
+            Context.RECEIVER_NOT_EXPORTED
+        )
+        
         overlayController = BlockingOverlayController(this)
         scope.launch {
             focusSessionRepository.observeActive()
@@ -154,7 +177,7 @@ class FocusAccessibilityService : AccessibilityService() {
                     } catch (e: Exception) {
                         packageName.substringAfterLast('.')
                     }
-                    notifications.showAllowance(label, expiresAt)
+                    notifications.showAllowance(packageName, label, expiresAt)
                     restartExpirationJob(expiresAt, packageName)
                 }
                 return@launch
@@ -197,7 +220,7 @@ class FocusAccessibilityService : AccessibilityService() {
                                 packageName.substringAfterLast('.')
                             }
                             Log.d("FocusAccessibilityService", "Granted allowance for $packageName until $expiresAt")
-                            notifications.showAllowance(label, expiresAt)
+                            notifications.showAllowance(packageName, label, expiresAt)
                             restartExpirationJob(expiresAt, packageName)
                         }
                     }
@@ -222,6 +245,7 @@ class FocusAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        unregisterReceiver(allowanceCancelledReceiver)
         allowanceExpirationJob?.cancel()
         policyScope.cancel()
         scope.cancel()

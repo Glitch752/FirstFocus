@@ -76,7 +76,7 @@ fun Timeline(
     val max = remember(values) { values.maxOrNull()?.coerceAtLeast(1L) ?: 1L }
     val startDayOfWeek = startDate.dayOfWeek.value
     val monthMarkers = remember(startDate, values.size) {
-        (0 until values.size)
+        values.indices
             .map { index ->
                 val date = startDate.plusDays(index.toLong())
                 YearMonth.from(date) to index
