@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +43,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -130,6 +135,67 @@ fun OverlayModalBottomSheet(
         modifier = modifier.fillMaxSize().onSizeChanged { containerHeight = it.height.toFloat() }
     ) {
         val scope = rememberCoroutineScope()
+        var dragDirection by remember { mutableFloatStateOf(0f) }
+        var directDragInProgress by remember { mutableStateOf(false) }
+
+        suspend fun settleSheet() {
+            val expandedAnchor = expandedOffset()
+            val partialAnchor = if (sheetState.hasPartiallyExpandedState) partiallyExpandedOffset() else expandedAnchor
+            val hiddenAnchor = hiddenOffset()
+            val anchors = listOf(
+                SheetValue.Expanded to expandedAnchor,
+                SheetValue.PartiallyExpanded to partialAnchor,
+                SheetValue.Hidden to hiddenAnchor
+            ).filter { it.first != SheetValue.PartiallyExpanded || sheetState.hasPartiallyExpandedState }
+
+            val target = anchors.minByOrNull {
+                val distance = kotlin.math.abs(offset.value - it.second)
+                val directionalBias = when {
+                    dragDirection > 0f && it.first == SheetValue.Hidden -> -sheetHeight * 0.15f
+                    dragDirection < 0f && it.first == SheetValue.Expanded -> -sheetHeight * 0.15f
+                    else -> 0f
+                }
+                distance + directionalBias
+            } ?: (SheetValue.Expanded to expandedAnchor)
+
+            offset.animateTo(
+                target.second,
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            )
+
+            when (target.first) {
+                SheetValue.Hidden -> {
+                    scope.launch { runCatching { sheetState.hide() } }
+                    onDismissRequest()
+                }
+                SheetValue.Expanded -> scope.launch { runCatching { sheetState.expand() } }
+                SheetValue.PartiallyExpanded -> scope.launch { runCatching { sheetState.partialExpand() } }
+            }
+        }
+
+        val sheetNestedScrollConnection = remember(sheetHeight, containerHeight) {
+            object : NestedScrollConnection {
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource
+                ): Offset {
+                    val dragAmount = available.y
+                    if (dragAmount <= 0f || directDragInProgress) return Offset.Zero
+
+                    dragDirection = dragAmount
+                    val newOffset = (offset.value + dragAmount).coerceIn(expandedOffset(), hiddenOffset())
+                    scope.launch { offset.snapTo(newOffset) }
+                    return Offset(x = 0f, y = dragAmount)
+                }
+
+                override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                    if (dragDirection > 0f) settleSheet()
+                    dragDirection = 0f
+                    return Velocity.Zero
+                }
+            }
+        }
 
         if (open) {
             Box(modifier = Modifier
@@ -157,6 +223,7 @@ fun OverlayModalBottomSheet(
                     var dragDirection = 0f
 
                     detectVerticalDragGestures(
+                        onDragStart = { directDragInProgress = true },
                         onVerticalDrag = { change, dragAmount ->
                             change.consume()
 
@@ -169,48 +236,12 @@ fun OverlayModalBottomSheet(
                         },
 
                         onDragEnd = {
-                            scope.launch {
-                                val expandedAnchor = expandedOffset()
-                                val partialAnchor = if (sheetState.hasPartiallyExpandedState) partiallyExpandedOffset() else expandedAnchor
-                                val hiddenAnchor = hiddenOffset()
-
-                                // Work out which anchor we should settle on
-                                val anchors = listOf(
-                                    SheetValue.Expanded to expandedAnchor,
-                                    SheetValue.PartiallyExpanded to partialAnchor,
-                                    SheetValue.Hidden to hiddenAnchor
-                                ).filter { it.first != SheetValue.PartiallyExpanded || sheetState.hasPartiallyExpandedState }
-
-                                val target = anchors.minByOrNull {
-                                    val distance = kotlin.math.abs(offset.value - it.second)
-                                    val directionalBias = when {
-                                        dragDirection > 0f && it.first == SheetValue.Hidden -> -sheetHeight * 0.15f
-                                        dragDirection < 0f && it.first == SheetValue.Expanded -> -sheetHeight * 0.15f
-                                        else -> 0f
-                                    }
-
-                                    distance + directionalBias
-                                } ?: (SheetValue.Expanded to expandedAnchor)
-
-                                offset.animateTo(
-                                    target.second,
-                                    animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
-                                )
-
-                                when (target.first) {
-                                    SheetValue.Hidden -> {
-                                        // Keep the real SheetState in sync
-                                        // We don't wait for its own animation because the visual animation above already happened
-                                        launch { runCatching { sheetState.hide() } }
-                                        onDismissRequest()
-                                    }
-                                    SheetValue.Expanded -> launch { runCatching { sheetState.expand() } }
-                                    SheetValue.PartiallyExpanded -> launch { runCatching { sheetState.partialExpand() } }
-                                }
-                            }
+                            directDragInProgress = false
+                            scope.launch { settleSheet() }
                         },
 
                         onDragCancel = {
+                            directDragInProgress = false
                             scope.launch {
                                 val target = offsetFor(sheetState.targetValue)
 
@@ -226,7 +257,12 @@ fun OverlayModalBottomSheet(
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 1.dp
         ) {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .nestedScroll(sheetNestedScrollConnection),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 dragHandle?.invoke()
                 content()
             }
